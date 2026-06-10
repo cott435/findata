@@ -1,7 +1,7 @@
 """Persistence and query layer for the stock_data SQLite database.
 
 All DB reads/writes go through DBManager. Acquisition (yf.py) and math
-(calculators.py) never touch the database; this module wires them together
+(technical_calculators.py) never touch the database; this module wires them together
 for ingestion and exposes the query API used by downstream projects.
 
 Conflict policy: price/ema/indicator rows are INSERT OR IGNORE (append-only);
@@ -21,7 +21,7 @@ from tqdm.auto import tqdm
 
 from configs import DATA_DIR, DB_NAME
 
-import src.calculators as calc
+import src.technical_calculators as calc
 from .tables import Base, EmaData, IndicatorData, PriceData, TickerMeta
 
 logger = logging.getLogger(__name__)

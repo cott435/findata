@@ -88,62 +88,63 @@ structural changes:
 The package root is stock_data/. Nothing outside this package writes
 directly to the database.
 
-  -----------------------------------------------------------------------
-  **File**                            **Responsibility**
-  ----------------------------------- -----------------------------------
-  stock_data/tables.py                **ORM definitions.** All SQLAlchemy
-                                      model classes, primary keys,
-                                      indexes, and column types. No
-                                      logic.
+  ---------------------------------------------------------------------------
+  **File**                                **Responsibility**
+  --------------------------------------- -----------------------------------
+  stock_data/tables.py                    **ORM definitions.** All SQLAlchemy
+                                          model classes, primary keys,
+                                          indexes, and column types. No
+                                          logic.
 
-  stock_data/yf.py                    **Yahoo Finance acquisition.**
-                                      Async wrapper around yahooquery.
-                                      Multi-ticker bulk queries for OHLCV
-                                      and metadata. Returns DataFrames;
-                                      does not touch the DB.
+  stock_data/yf.py                        **Yahoo Finance acquisition.**
+                                          Async wrapper around yahooquery.
+                                          Multi-ticker bulk queries for OHLCV
+                                          and metadata. Returns DataFrames;
+                                          does not touch the DB.
 
-  stock_data/edgar.py                 **EDGAR acquisition.** Async
-                                      wrapper around edgartools.
-                                      Per-ticker sequential filing
-                                      downloads. Parses both numerical
-                                      financials and text sections. Does
-                                      not touch the DB.
+  stock_data/edgar.py                     **EDGAR acquisition.** Async
+                                          wrapper around edgartools.
+                                          Per-ticker sequential filing
+                                          downloads. Parses both numerical
+                                          financials and text sections. Does
+                                          not touch the DB.
 
-  stock_data/calculators.py           **Derived metrics.** EMAs,
-                                      technical indicators, fundamental
-                                      ratios. Stateless functions with
-                                      optional seed param for incremental
-                                      mode.
+  stock_data/technical_calculators.py     **Derived metrics.** EMAs,
+                                          technical indicators. Stateless
+                                          functions with optional seed param
+                                          for incremental mode.
 
-  stock_data/db_manager.py            **Persistence & query.** All DB
-                                      reads/writes. Implements per-ticker
-                                      init/update logic and the public
-                                      query API.
+  stock_data/db_manager.py                **Persistence & query.** All DB
+                                          reads/writes. Implements per-ticker
+                                          init/update logic and the public
+                                          query API.
 
-  scripts/init_yf.py                  **YF init script.** Bulk-seeds
-                                      price data for a ticker list. Fast
-                                      --- yahooquery handles many tickers
-                                      in parallel.
+  scripts/init_yf.py                      **YF init script.** Bulk-seeds
+                                          price data for a ticker list. Fast
+                                          --- yahooquery handles many tickers
+                                          in parallel.
 
-  scripts/init_edgar.py               **EDGAR init script.** Seeds
-                                      financial and filing text data
-                                      ticker-by-ticker. Slow --- intended
-                                      to be run overnight or in batches.
+  scripts/init_edgar.py                   **EDGAR init script.** Seeds
+                                          financial and filing text data
+                                          ticker-by-ticker. Slow --- intended
+                                          to be run overnight or in batches.
 
-  scripts/update_daily.py             **Daily runner.** Incremental
-                                      update for all seeded tickers. Safe
-                                      to run via cron.
+  scripts/update_daily.py                 **Daily runner.** Incremental
+                                          update for all seeded tickers. Safe
+                                          to run via cron.
 
-  scripts/query_db_yf.py              **Ad-hoc CLI.** Interactive query
-                                      interface for debugging and data
-                                      inspection for yahooquery.
+  scripts/query_db_yf.py                  **Ad-hoc CLI.** Interactive query
+                                          interface for debugging and data
+                                          inspection for yahooquery.
 
-  scripts/query_db_edger.py           **Ad-hoc CLI.** Interactive query
-                                      interface for debugging and data
-                                      inspection for edgartools.
+  scripts/query_db_edger.py               **Ad-hoc CLI.** Interactive query
+                                          interface for debugging and data
+                                          inspection for edgartools.
 
-                                      
-  -----------------------------------------------------------------------
+  stock_data/fundamental_calculators.py   **Derived metrics.** For working
+                                          with finacials data and calculating
+                                          needed items.
+  ---------------------------------------------------------------------------
 
 # 4. EDGAR File Storage (Disk)
 
