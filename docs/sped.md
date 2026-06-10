@@ -134,11 +134,13 @@ directly to the database.
                                       update for all seeded tickers. Safe
                                       to run via cron.
 
-  scripts/query_db.py                 **Ad-hoc CLI.** Interactive query
+  scripts/query_db_yf.py              **Ad-hoc CLI.** Interactive query
                                       interface for debugging and data
-                                      inspection.
+                                      inspection for yahooquery.
 
-                                      
+  scripts/query_db_edger.py           **Ad-hoc CLI.** Interactive query
+                                      interface for debugging and data
+                                      inspection for edgartools.
 
                                       
   -----------------------------------------------------------------------

@@ -1,8 +1,11 @@
+import logging
 import pandas as pd
 from yahooquery import Ticker
 from typing import Union, List, Tuple, Dict, Any
 import asyncio
 from datetime import timedelta, datetime
+
+logger = logging.getLogger(__name__)
 
 def get_monday(date_obj, prior_week=False):
     if date_obj:
@@ -29,7 +32,8 @@ class YahooFinance:
         return df.drop(columns=["adjclose"])
 
     def request_ticker_financials(self, start=None) -> Dict[str, Any]:
-        print('Requesting Yahoo Finance data')
+        logger.info('Requesting Yahoo Finance data for %d ticker(s)%s',
+                    len(self.tickers), f' from {start}' if start else '')
         return asyncio.run(self._request_ticker_financials(start=start))
 
     async def _request_ticker_financials(self, start=None) -> Dict[str, Any]:
@@ -81,7 +85,7 @@ class YahooFinance:
                 }
 
         except Exception as e:
-            print(f"YahooFinance: Error fetching bulk data: {e}")
+            logger.exception('YahooFinance: error fetching bulk data: %s', e)
             return {ticker: {"ticker": ticker, "info": {"error": str(e)}} for ticker in self.tickers}
 
 if __name__ == '__main__':
