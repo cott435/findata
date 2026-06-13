@@ -64,10 +64,23 @@ def update_yf(db: DBManager, tickers: list = None, dry_run: bool = False) -> dic
     return db.update_ticker_data(prices, info=data['info'])
 
 
-def update_edgar(db: DBManager, tickers: list = None, dry_run: bool = False):
-    """Placeholder: EDGAR incremental update (new filings, financials,
-    fundamentals) lands here in part 2."""
-    logger.debug('EDGAR update not implemented yet (part 2).')
+def update_edgar(db: DBManager, tickers: list = None, dry_run: bool = False) -> dict:
+    """Incremental EDGAR update: filings after last_filings_date / Form 4s
+    after last_form4_date, plus a facts refresh, for edgar-seeded tickers."""
+    from src.edgar_ import EdgarPipeline
+
+    meta = db.get_ticker_meta()
+    seeded = meta[meta['edgar_seeded'].fillna(False).astype(bool)]
+    if tickers is not None:
+        seeded = seeded[seeded.index.isin([t.upper() for t in tickers])]
+    if seeded.empty:
+        logger.info('No edgar-seeded tickers to update.')
+        return {}
+    if dry_run:
+        logger.info('Dry run -- would check %d ticker(s) for filings after %s.',
+                    len(seeded), dict(seeded['last_filings_date']))
+        return {}
+    return EdgarPipeline(db=db).run(list(seeded.index))
 
 
 def main():
@@ -84,10 +97,11 @@ def main():
 
     db = DBManager(args.db_path)
     counts = update_yf(db, tickers=args.tickers, dry_run=args.dry_run)
-    update_edgar(db, tickers=args.tickers, dry_run=args.dry_run)
+    edgar_counts = update_edgar(db, tickers=args.tickers, dry_run=args.dry_run)
 
-    if counts:
-        print(f'\nRows inserted: {counts}')
+    if counts or edgar_counts:
+        print(f'\nYF rows inserted: {counts}')
+        print(f'EDGAR rows inserted: {edgar_counts}')
         print(db.ticker_summary())
 
 

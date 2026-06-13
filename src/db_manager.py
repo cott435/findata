@@ -22,7 +22,8 @@ from tqdm.auto import tqdm
 from configs import DATA_DIR, DB_NAME
 
 import src.technical_calculators as calc
-from .tables import Base, EmaData, IndicatorData, PriceData, TickerMeta
+from .tables import (Base, BalanceData, CashflowData, EmaData, FilingsData,
+                     Form4Data, IncomeData, IndicatorData, PriceData, TickerMeta)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,21 @@ class DBManager:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(f'sqlite:///{db_path}')
         Base.metadata.create_all(self.engine)
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        """Add columns introduced after a table already exists on disk
+        (create_all only creates missing tables, it never alters them)."""
+        added = {'ticker_meta': {'last_form4_date': 'DATE'}}
+        with self.engine.begin() as conn:
+            for table, columns in added.items():
+                existing = {row[1] for row in
+                            conn.exec_driver_sql(f'PRAGMA table_info({table})')}
+                for column, sql_type in columns.items():
+                    if column not in existing:
+                        logger.info('Migrating %s: adding column %s', table, column)
+                        conn.exec_driver_sql(
+                            f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}')
 
     # ------------------------------------------------------------------ #
     # ingestion
@@ -182,9 +198,14 @@ class DBManager:
             IndicatorData, inds[['ticker', 'date', 'freq', 'indicator', 'period', 'value']])
         return {'ema': n_ema, 'indicator': n_ind}
 
+    def upsert_ticker_meta(self, info: pd.DataFrame, **flags):
+        """Public upsert into ticker_meta (info indexed by ticker; flags are
+        fixed column values applied to every row, e.g. edgar_seeded=True)."""
+        self._upsert_meta(info, **flags)
+
     def _upsert_meta(self, info: pd.DataFrame, **flags):
         allowed = ['ticker', 'name', 'sector', 'industry', 'last_price_date',
-                   'last_filings_date', 'yf_seeded', 'edgar_seeded']
+                   'last_filings_date', 'last_form4_date', 'yf_seeded', 'edgar_seeded']
         df = info.reset_index()
         records = self._records(df[[c for c in df.columns if c in allowed]])
         now = datetime.now()
@@ -226,7 +247,7 @@ class DBManager:
         columns = []
         for name in df.columns:
             series = df[name]
-            if series.dtype.kind in 'iuf':
+            if series.dtype.kind in 'iufb':
                 columns.append(series.to_numpy().tolist())
                 continue
             first = next((v for v in series if not pd.isna(v)), None)
@@ -552,3 +573,175 @@ class DBManager:
             return pd.DataFrame(columns=['date', 'item', 'period', 'value'])
         long = pd.concat(parts, ignore_index=True)[['date', 'item', 'period', 'value']]
         return long.sort_values(['item', 'period', 'date'], ignore_index=True)
+
+    # ------------------------------------------------------------------ #
+    # EDGAR ingestion
+    # ------------------------------------------------------------------ #
+
+    def add_filings_meta(self, df: pd.DataFrame) -> int:
+        """Insert filings_data rows (one per parsed 10-K/10-Q/8-K)."""
+        n = self._insert_ignore(FilingsData, df)
+        logger.debug('filings_data: %d row(s) inserted', n)
+        return n
+
+    def add_form4(self, df: pd.DataFrame) -> int:
+        """Insert Form 4 transaction rows."""
+        n = self._insert_ignore(Form4Data, df)
+        logger.debug('form4_data: %d row(s) inserted', n)
+        return n
+
+    def add_financials(self, statements: dict) -> dict:
+        """Insert parsed financial statements.
+
+        ``statements`` maps 'income'/'balance'/'cashflow' to DataFrames with
+        columns matching the respective table.
+        """
+        models = {'income': IncomeData, 'balance': BalanceData, 'cashflow': CashflowData}
+        counts = {}
+        for name, frame in statements.items():
+            if frame is None or frame.empty:
+                counts[name] = 0
+                continue
+            counts[name] = self._insert_ignore(models[name], frame)
+        logger.debug('financials inserted: %s', counts)
+        return counts
+
+    # ------------------------------------------------------------------ #
+    # EDGAR queries
+    # ------------------------------------------------------------------ #
+
+    def last_edgar_dates(self, ticker: str) -> dict:
+        """Newest stored filing_date per EDGAR stream, for ticker_meta upkeep."""
+        with self.engine.connect() as conn:
+            filings = conn.execute(select(func.max(FilingsData.filing_date))
+                                   .where(FilingsData.ticker == ticker)).scalar()
+            form4 = conn.execute(select(func.max(Form4Data.filing_date))
+                                 .where(Form4Data.ticker == ticker)).scalar()
+        return {'last_filings_date': filings, 'last_form4_date': form4}
+
+    def get_filings_meta(self, ticker: str, form: str = None) -> pd.DataFrame:
+        """filings_data rows for a ticker, newest first."""
+        stmt = (select(FilingsData).where(FilingsData.ticker == ticker)
+                .order_by(FilingsData.filing_date.desc()))
+        if form is not None:
+            stmt = stmt.where(FilingsData.form_type == form)
+        return pd.read_sql(stmt, self.engine)
+
+    def get_form4(self, ticker: str, start=None, end=None) -> pd.DataFrame:
+        """Insider transactions, oldest first."""
+        stmt = (select(Form4Data).where(Form4Data.ticker == ticker)
+                .order_by(Form4Data.transaction_date, Form4Data.accession_number,
+                          Form4Data.seq))
+        stmt = self._date_filter(stmt, Form4Data.transaction_date, start, end)
+        return pd.read_sql(stmt, self.engine)
+
+    def get_income(self, ticker: str, items: list = None, interval: str = None,
+                   wide: bool = False) -> pd.DataFrame:
+        """Income-statement rows.
+
+        ``interval``: 'quarterly' (fiscal_quarter 1-4), 'annual'
+        (fiscal_quarter 0), or None for both. wide pivots items to columns
+        indexed by (fiscal_year, fiscal_quarter).
+        """
+        stmt = (select(IncomeData).where(IncomeData.ticker == ticker)
+                .order_by(IncomeData.fiscal_year, IncomeData.fiscal_quarter))
+        if items is not None:
+            stmt = stmt.where(IncomeData.item.in_(items))
+        if interval == 'quarterly':
+            stmt = stmt.where(IncomeData.fiscal_quarter > 0)
+        elif interval == 'annual':
+            stmt = stmt.where(IncomeData.fiscal_quarter == 0)
+        df = pd.read_sql(stmt, self.engine)
+        if wide and not df.empty:
+            pivot = df.pivot(index=['fiscal_year', 'fiscal_quarter'],
+                             columns='item', values='value')
+            if interval == 'annual':
+                pivot.index = pivot.index.get_level_values('fiscal_year')
+            return pivot
+        return df
+
+    def get_balance(self, ticker: str, items: list = None, start=None, end=None,
+                    wide: bool = False) -> pd.DataFrame:
+        """Balance-sheet rows (point-in-time). wide pivots items to columns
+        indexed by balance date."""
+        stmt = (select(BalanceData).where(BalanceData.ticker == ticker)
+                .order_by(BalanceData.date))
+        if items is not None:
+            stmt = stmt.where(BalanceData.item.in_(items))
+        stmt = self._date_filter(stmt, BalanceData.date, start, end)
+        df = pd.read_sql(stmt, self.engine)
+        if wide and not df.empty:
+            return df.pivot(index='date', columns='item', values='value')
+        return df
+
+    def get_cashflow(self, ticker: str, items: list = None, derived: bool = None,
+                     wide: bool = False) -> pd.DataFrame:
+        """Cash-flow rows (cumulative windows; duration_days tells how far
+        into the fiscal year each window reaches).
+
+        ``derived``: True -> only de-cumulated single quarters, False -> only
+        as-reported cumulative rows, None -> both. wide pivots items to
+        columns indexed by (start_date, end_date).
+        """
+        stmt = (select(CashflowData).where(CashflowData.ticker == ticker)
+                .order_by(CashflowData.end_date, CashflowData.duration_days))
+        if items is not None:
+            stmt = stmt.where(CashflowData.item.in_(items))
+        if derived is not None:
+            stmt = stmt.where(CashflowData.derived == derived)
+        df = pd.read_sql(stmt, self.engine)
+        if wide and not df.empty:
+            return df.pivot(index=['start_date', 'end_date'], columns='item',
+                            values='value')
+        return df
+
+    def get_financials(self, ticker: str, interval: str = 'quarterly',
+                       items: list = None) -> pd.DataFrame:
+        """One wide frame of all financial items across the three statements.
+
+        interval='annual' is indexed by fiscal_year; 'quarterly' by the
+        MultiIndex (fiscal_year, fiscal_quarter). Per statement:
+        income -- annual rows or as-reported quarters (incl. derived Q4);
+        balance -- fiscal-year-end values, shown as quarter 4 in the
+        quarterly view; cash flow -- full-year windows for annual,
+        single-quarter windows for quarterly (reported Q1s plus derived
+        rows when the pipeline ran with decumulate_cashflow=True).
+        """
+        if interval not in ('annual', 'quarterly'):
+            raise ValueError("interval must be 'annual' or 'quarterly'")
+        annual = interval == 'annual'
+
+        income = self.get_income(ticker, items=items)
+        balance = self.get_balance(ticker, items=items)
+        cashflow = self.get_cashflow(ticker, items=items)
+
+        parts = []
+        if not income.empty:
+            parts.append(income[income['fiscal_quarter'] == 0] if annual
+                         else income[income['fiscal_quarter'] > 0])
+        if not balance.empty:
+            balance = balance[balance['fiscal_quarter'].notna()].copy()
+            if annual:
+                parts.append(balance[balance['fiscal_quarter'] == 0])
+            else:
+                balance['fiscal_quarter'] = balance['fiscal_quarter'].replace(0, 4)
+                parts.append(balance[balance['fiscal_quarter'].isin([1, 2, 3, 4])])
+        if not cashflow.empty:
+            if annual:
+                parts.append(cashflow[cashflow['fiscal_quarter'] == 0])
+            else:
+                quarters = cashflow[cashflow['duration_days'] <= 110].copy()
+                quarters['fiscal_quarter'] = quarters['fiscal_quarter'].replace(0, 4)
+                parts.append(quarters)
+
+        parts = [p[['fiscal_year', 'fiscal_quarter', 'item', 'value']] for p in parts if not p.empty]
+        if not parts:
+            return pd.DataFrame()
+        long = (pd.concat(parts, ignore_index=True)
+                .drop_duplicates(subset=['fiscal_year', 'fiscal_quarter', 'item'], keep='last'))
+        if annual:
+            return (long.pivot(index='fiscal_year', columns='item', values='value')
+                    .sort_index())
+        long['fiscal_quarter'] = long['fiscal_quarter'].astype(int)
+        return (long.pivot(index=['fiscal_year', 'fiscal_quarter'], columns='item',
+                           values='value').sort_index())
