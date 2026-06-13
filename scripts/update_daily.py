@@ -13,8 +13,8 @@ import argparse
 import logging
 from datetime import date, timedelta
 
-from src.db_manager import DBManager
-from src.yf import YahooFinance
+from findata.db_manager import DBManager
+from findata.yf import YahooFinance
 
 logger = logging.getLogger('scripts.update_daily')
 
@@ -67,7 +67,7 @@ def update_yf(db: DBManager, tickers: list = None, dry_run: bool = False) -> dic
 def update_edgar(db: DBManager, tickers: list = None, dry_run: bool = False) -> dict:
     """Incremental EDGAR update: filings after last_filings_date / Form 4s
     after last_form4_date, plus a facts refresh, for edgar-seeded tickers."""
-    from src.edgar_ import EdgarPipeline
+    from findata.edgar_ import EdgarPipeline
 
     meta = db.get_ticker_meta()
     seeded = meta[meta['edgar_seeded'].fillna(False).astype(bool)]

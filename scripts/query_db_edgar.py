@@ -21,8 +21,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.db_manager import DBManager
-from src.edgar_ import EdgarPipeline
+from findata.db_manager import DBManager
+from findata.edgar_ import EdgarPipeline
 
 
 def banner(title):
@@ -31,7 +31,7 @@ def banner(title):
 
 def main():
     parser = argparse.ArgumentParser(description='Demo the EDGAR query API.')
-    parser.add_argument('--ticker', default='TEM')
+    parser.add_argument('--ticker', default='AAPL')
     parser.add_argument('--db-path', default=None)
     args = parser.parse_args()
     ticker = args.ticker.upper()

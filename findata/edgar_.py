@@ -39,10 +39,11 @@ import pandas as pd
 from edgar import Company, find, set_identity
 from tqdm.auto import tqdm
 
-from configs import EDGAR_IDENTITY, SEC_DIR
+from findata.configs import EDGAR_IDENTITY, SEC_DIR
 
 from .db_manager import DBManager
 
+logging.getLogger("edgar").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------- #
@@ -456,7 +457,8 @@ class EdgarPipeline:
         for job in jobs:
             company_q.put_nowait(job)
         bar = tqdm(total=0, unit='filing', disable=not progress,
-                   desc=f"EDGAR {'/'.join(job.ticker for job in jobs)}")
+                   desc=f"EDGAR {'/'.join(job.ticker for job in jobs)}",
+                   dynamic_ncols=True, leave=True)
 
         async def company_worker():
             while True:

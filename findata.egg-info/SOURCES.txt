@@ -1,0 +1,14 @@
+pyproject.toml
+findata/__init__.py
+findata/configs.py
+findata/db_manager.py
+findata/edgar_.py
+findata/edgar_test.py
+findata/tables.py
+findata/technical_calculators.py
+findata/yf.py
+findata.egg-info/PKG-INFO
+findata.egg-info/SOURCES.txt
+findata.egg-info/dependency_links.txt
+findata.egg-info/requires.txt
+findata.egg-info/top_level.txt

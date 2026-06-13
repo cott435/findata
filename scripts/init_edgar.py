@@ -14,8 +14,8 @@ Run from the project root:
 import argparse
 import logging
 
-from src.db_manager import DBManager
-from src.edgar_ import EdgarPipeline
+from findata.db_manager import DBManager
+from findata.edgar_ import EdgarPipeline
 from scripts.init_yf import DEFAULT_TICKERS
 
 logger = logging.getLogger('scripts.init_edgar')
@@ -35,7 +35,7 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
-    args.min_date = '2025-01-01'
+    args.min_date = '2013-01-01'
     db = DBManager(args.db_path)
     tickers = [t.upper() for t in args.tickers]
 

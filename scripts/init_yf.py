@@ -15,8 +15,8 @@ import logging
 import pandas as pd
 from yahooquery import Ticker
 
-from src.db_manager import DBManager
-from src.yf import YahooFinance
+from findata.db_manager import DBManager
+from findata.yf import YahooFinance
 
 logger = logging.getLogger('scripts.init_yf')
 

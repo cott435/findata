@@ -1,0 +1,6 @@
+edgartools
+yahooquery
+sqlalchemy
+tqdm
+numpy
+pandas

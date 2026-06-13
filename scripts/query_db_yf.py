@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.db_manager import DBManager, MissingItemsError
-from src.yf import YahooFinance
+from findata.db_manager import DBManager, MissingItemsError
+from findata.yf import YahooFinance
 
 
 def banner(title):

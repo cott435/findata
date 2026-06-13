@@ -19,9 +19,9 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from tqdm.auto import tqdm
 
 
-from configs import DATA_DIR, DB_NAME
+from findata.configs import DATA_DIR, DB_NAME
 
-import src.technical_calculators as calc
+import findata.technical_calculators as calc
 from .tables import (Base, BalanceData, CashflowData, EmaData, FilingsData,
                      Form4Data, IncomeData, IndicatorData, PriceData, TickerMeta)
 
