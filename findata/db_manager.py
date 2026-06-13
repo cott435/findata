@@ -362,15 +362,35 @@ class DBManager:
         cols = ['name', 'sector', 'industry', 'last_price_date', 'yf_seeded', 'edgar_seeded']
         return meta[cols].join(bars).join(daily_range)
 
-    def get_price_data(self, ticker: str, interval: str = 'daily',
+    def _stack_tickers(self, method, tickers, **kwargs) -> pd.DataFrame:
+        """Run a single-ticker query for each ticker and stack the results.
+
+        Indexed frames (date / fiscal period) gain a leading 'ticker' index
+        level -- e.g. (ticker, date); long-format frames (default RangeIndex)
+        gain a leading 'ticker' column instead. Tickers with no rows are
+        dropped; an all-empty request returns the single-ticker empty frame.
+        """
+        frames = [(t, method(t, **kwargs)) for t in tickers]
+        frames = [(t, df) for t, df in frames if not df.empty]
+        if not frames:
+            return method(tickers[0], **kwargs) if tickers else pd.DataFrame()
+        if isinstance(frames[0][1].index, pd.RangeIndex):
+            out = pd.concat([df.assign(ticker=t) for t, df in frames], ignore_index=True)
+            return out[['ticker'] + [c for c in out.columns if c != 'ticker']]
+        return pd.concat({t: df for t, df in frames}, names=['ticker'])
+
+    def get_price_data(self, ticker, interval: str = 'daily',
                        start=None, end=None) -> pd.DataFrame:
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_price_data, ticker,
+                                       interval=interval, start=start, end=end)
         stmt = (select(PriceData.date, *[getattr(PriceData, c) for c in PRICE_COLUMNS])
                 .where(PriceData.ticker == ticker, PriceData.interval == interval)
                 .order_by(PriceData.date))
         stmt = self._date_filter(stmt, PriceData.date, start, end)
         return pd.read_sql(stmt, self.engine).set_index('date')
 
-    def get_all_data(self, ticker: str, interval: str = 'daily',
+    def get_all_data(self, ticker, interval: str = 'daily',
                      start=None, end=None, wide: bool = True) -> pd.DataFrame:
         """Everything stored for a ticker/interval: prices + EMAs + indicators.
 
@@ -378,7 +398,13 @@ class DBManager:
         '<item>_<period>', period-0 items keep their bare name). wide=False
         returns a long frame [date, item, period, value] with the price
         columns included as period-0 items.
+
+        ``ticker`` may be a list; results are stacked with a leading 'ticker'
+        index level (wide -> (ticker, date)) or 'ticker' column (long).
         """
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_all_data, ticker, interval=interval,
+                                       start=start, end=end, wide=wide)
         price = self.get_price_data(ticker, interval, start, end)
         calc_long = pd.concat([
             self._read_ema_long(ticker, interval, None, start, end),
@@ -386,7 +412,7 @@ class DBManager:
         ], ignore_index=True)
         return self._shape(price, calc_long, wide)
 
-    def get_items(self, ticker: str, items: dict, interval: str = 'daily',
+    def get_items(self, ticker, items: dict, interval: str = 'daily',
                   start=None, end=None, wide: bool = True) -> pd.DataFrame:
         """Fetch specific items: {name: period(s) or None}.
 
@@ -400,7 +426,13 @@ class DBManager:
         Missing (item, period) combos follow self.if_missing: 'raise' raises
         MissingItemsError; 'add' computes them from stored price data,
         inserts them, and returns them.
+
+        ``ticker`` may be a list; results are stacked with a leading 'ticker'
+        index level (wide -> (ticker, date)) or 'ticker' column (long).
         """
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_items, ticker, items=items, interval=interval,
+                                       start=start, end=end, wide=wide)
         price_cols, ema_pairs, ind_pairs = self._resolve_items(items)
 
         missing_emas = self._missing_pairs(ticker, interval, EmaData, ema_pairs)
@@ -619,30 +651,40 @@ class DBManager:
                                  .where(Form4Data.ticker == ticker)).scalar()
         return {'last_filings_date': filings, 'last_form4_date': form4}
 
-    def get_filings_meta(self, ticker: str, form: str = None) -> pd.DataFrame:
+    def get_filings_meta(self, ticker, form: str = None) -> pd.DataFrame:
         """filings_data rows for a ticker, newest first."""
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_filings_meta, ticker, form=form)
         stmt = (select(FilingsData).where(FilingsData.ticker == ticker)
                 .order_by(FilingsData.filing_date.desc()))
         if form is not None:
             stmt = stmt.where(FilingsData.form_type == form)
         return pd.read_sql(stmt, self.engine)
 
-    def get_form4(self, ticker: str, start=None, end=None) -> pd.DataFrame:
+    def get_form4(self, ticker, start=None, end=None) -> pd.DataFrame:
         """Insider transactions, oldest first."""
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_form4, ticker, start=start, end=end)
         stmt = (select(Form4Data).where(Form4Data.ticker == ticker)
                 .order_by(Form4Data.transaction_date, Form4Data.accession_number,
                           Form4Data.seq))
         stmt = self._date_filter(stmt, Form4Data.transaction_date, start, end)
         return pd.read_sql(stmt, self.engine)
 
-    def get_income(self, ticker: str, items: list = None, interval: str = None,
+    def get_income(self, ticker, items: list = None, interval: str = None,
                    wide: bool = False) -> pd.DataFrame:
         """Income-statement rows.
 
         ``interval``: 'quarterly' (fiscal_quarter 1-4), 'annual'
         (fiscal_quarter 0), or None for both. wide pivots items to columns
         indexed by (fiscal_year, fiscal_quarter).
+
+        ``ticker`` may be a list; results gain a leading 'ticker' index
+        level (wide) or 'ticker' column (long).
         """
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_income, ticker, items=items,
+                                       interval=interval, wide=wide)
         stmt = (select(IncomeData).where(IncomeData.ticker == ticker)
                 .order_by(IncomeData.fiscal_year, IncomeData.fiscal_quarter))
         if items is not None:
@@ -660,10 +702,17 @@ class DBManager:
             return pivot
         return df
 
-    def get_balance(self, ticker: str, items: list = None, start=None, end=None,
+    def get_balance(self, ticker, items: list = None, start=None, end=None,
                     wide: bool = False) -> pd.DataFrame:
         """Balance-sheet rows (point-in-time). wide pivots items to columns
-        indexed by balance date."""
+        indexed by balance date.
+
+        ``ticker`` may be a list; results gain a leading 'ticker' index
+        level (wide -> (ticker, date)) or 'ticker' column (long).
+        """
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_balance, ticker, items=items,
+                                       start=start, end=end, wide=wide)
         stmt = (select(BalanceData).where(BalanceData.ticker == ticker)
                 .order_by(BalanceData.date))
         if items is not None:
@@ -674,7 +723,7 @@ class DBManager:
             return df.pivot(index='date', columns='item', values='value')
         return df
 
-    def get_cashflow(self, ticker: str, items: list = None, derived: bool = None,
+    def get_cashflow(self, ticker, items: list = None, derived: bool = None,
                      wide: bool = False) -> pd.DataFrame:
         """Cash-flow rows (cumulative windows; duration_days tells how far
         into the fiscal year each window reaches).
@@ -682,7 +731,13 @@ class DBManager:
         ``derived``: True -> only de-cumulated single quarters, False -> only
         as-reported cumulative rows, None -> both. wide pivots items to
         columns indexed by (start_date, end_date).
+
+        ``ticker`` may be a list; results gain a leading 'ticker' index
+        level (wide) or 'ticker' column (long).
         """
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_cashflow, ticker, items=items,
+                                       derived=derived, wide=wide)
         stmt = (select(CashflowData).where(CashflowData.ticker == ticker)
                 .order_by(CashflowData.end_date, CashflowData.duration_days))
         if items is not None:
@@ -695,7 +750,7 @@ class DBManager:
                             values='value')
         return df
 
-    def get_financials(self, ticker: str, interval: str = 'quarterly',
+    def get_financials(self, ticker, interval: str = 'quarterly',
                        items: list = None) -> pd.DataFrame:
         """One wide frame of all financial items across the three statements.
 
@@ -706,9 +761,15 @@ class DBManager:
         quarterly view; cash flow -- full-year windows for annual,
         single-quarter windows for quarterly (reported Q1s plus derived
         rows when the pipeline ran with decumulate_cashflow=True).
+
+        ``ticker`` may be a list; results gain a leading 'ticker' index level
+        -> (ticker, fiscal_year[, fiscal_quarter]).
         """
         if interval not in ('annual', 'quarterly'):
             raise ValueError("interval must be 'annual' or 'quarterly'")
+        if not isinstance(ticker, str):
+            return self._stack_tickers(self.get_financials, ticker,
+                                       interval=interval, items=items)
         annual = interval == 'annual'
 
         income = self.get_income(ticker, items=items)
