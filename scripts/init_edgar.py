@@ -16,12 +16,13 @@ import logging
 
 from findata.db_manager import DBManager
 from findata.edgar_ import EdgarPipeline
+from findata.ticker_sampling import TickerSampler
 from scripts.init_yf import DEFAULT_TICKERS
 
 logger = logging.getLogger('scripts.init_edgar')
 
 
-def main():
+def main(use_all=False):
     parser = argparse.ArgumentParser(description='Cold-start EDGAR filing + financials data.')
     parser.add_argument('--tickers', nargs='+', default=DEFAULT_TICKERS, help='Ticker symbols to seed.')
     parser.add_argument('--db-path', default=None, help='SQLite file (default: data dir from configs).')
@@ -37,7 +38,7 @@ def main():
                         format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
     args.min_date = '2013-01-01'
     db = DBManager(args.db_path)
-    tickers = [t.upper() for t in args.tickers]
+    tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['edgar_seeded'].fillna(False).astype(bool)])
@@ -62,4 +63,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(use_all=True)

@@ -17,6 +17,7 @@ from yahooquery import Ticker
 
 from findata.db_manager import DBManager
 from findata.yf import YahooFinance
+from findata.ticker_sampling import TickerSampler
 
 logger = logging.getLogger('scripts.init_yf')
 
@@ -38,7 +39,7 @@ def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:
     return report
 
 
-def main():
+def main(use_all=False):
     parser = argparse.ArgumentParser(description='Cold-start YF price data.')
     parser.add_argument('--tickers', nargs='+', default=DEFAULT_TICKERS,
                         help='Ticker symbols to seed.')
@@ -51,7 +52,7 @@ def main():
                         format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
 
     db = DBManager(args.db_path)
-    tickers = [t.upper() for t in args.tickers]
+    tickers = TickerSampler(use_russell3000=True).tickers if use_all else [t.upper() for t in args.tickers]
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['yf_seeded'].fillna(False).astype(bool)])
@@ -60,21 +61,24 @@ def main():
 
     if skipped:
         print('\nAlready seeded -- skipped (use --force to re-seed, update_daily to refresh):')
-        print(skip_report(db, skipped))
 
     if not todo:
         print('\nNothing to seed.')
         return
 
-    data = YahooFinance(todo).request_ticker_financials()
-    if 'prices' not in data:
-        logger.error('Download failed, nothing inserted.')
-        return
-    counts = db.add_ticker_data(data['info'], data['prices'])
+    max_tickers = 30
 
-    print(f'\nRows inserted: {counts}')
+    for i in range(0, len(todo), max_tickers):
+        subset = todo[i:i + max_tickers]
+        data = YahooFinance(subset).request_ticker_financials()
+        if 'prices' not in data:
+            logger.error('Download failed, nothing inserted.')
+            return
+        counts = db.add_ticker_data(data['info'], data['prices'])
+
+        print(f'\nRows inserted: {counts}')
     print(db.ticker_summary().loc[[t for t in todo if t in db.get_ticker_meta().index]])
 
 
 if __name__ == '__main__':
-    main()
+    main(use_all=True)

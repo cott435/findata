@@ -76,7 +76,7 @@ class YahooFinance:
                     'sector': info.get('sector', 'etf'),
                     'industry': info.get('industry', 'etf'),
                     'last_price_date': last_price_dates.loc[ticker],
-                } for ticker, info in info.items()
+                } for ticker, info in info.items() if isinstance(info, dict)
             ]
             t_info = pd.DataFrame(t_info).set_index('ticker')
             return {

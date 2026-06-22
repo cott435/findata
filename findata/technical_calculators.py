@@ -74,6 +74,39 @@ def _seeded_cumsum(flow: pd.Series, seed: pd.Series = None) -> pd.Series:
     return pd.concat([seed, tail]).cumsum().iloc[1:]
 
 
+def _rolling_mad(series: pd.Series, period: int) -> pd.Series:
+    """Rolling mean-absolute-deviation about each window's own mean.
+
+    Vectorized stand-in for rolling().apply(): one strided view over the array
+    and array-wide reductions instead of a Python callback per window. Matches
+    the native rolling contract (NaN for the leading period-1 bars and for any
+    window containing a gap, since the mean then propagates NaN).
+    """
+    arr = series.to_numpy(dtype=float)
+    out = np.full(arr.shape, np.nan)
+    if arr.size >= period:
+        windows = np.lib.stride_tricks.sliding_window_view(arr, period)
+        out[period - 1:] = np.abs(windows - windows.mean(axis=1, keepdims=True)).mean(axis=1)
+    return pd.Series(out, index=series.index)
+
+
+def _bars_since_extreme(series: pd.Series, period: int, argfunc) -> np.ndarray:
+    """Bars since each window's most recent max/min (0 = current bar).
+
+    Vectorized stand-in for rolling().apply(argmax/argmin on the reversed
+    window). NaN-masked to match the native rolling contract (argmax/argmin
+    would otherwise treat a NaN as the extreme rather than yield NaN).
+    """
+    arr = series.to_numpy(dtype=float)
+    out = np.full(arr.shape, np.nan)
+    if arr.size >= period:
+        windows = np.lib.stride_tricks.sliding_window_view(arr, period)[:, ::-1]
+        since = argfunc(windows, axis=1).astype(float)
+        since[np.isnan(windows).any(axis=1)] = np.nan
+        out[period - 1:] = since
+    return out
+
+
 def ema(series: pd.Series, period: int, seed: pd.Series = None) -> pd.Series:
     """EMA of an arbitrary series (close, obv, ad, ...)."""
     return _seeded_ewm(series, span=period, seed=seed)
@@ -141,7 +174,7 @@ def adx(df: pd.DataFrame, period: int = 14, seeds: dict = None) -> pd.DataFrame:
 def cci(df: pd.DataFrame, period: int = 20) -> pd.Series:
     tp = (df['high'] + df['low'] + df['close']) / 3
     sma = tp.rolling(period).mean()
-    mad = tp.rolling(period).apply(lambda x: np.mean(np.abs(x - x.mean())), raw=True)
+    mad = _rolling_mad(tp, period)
     return ((tp - sma) / (0.015 * mad)).rename('cci')
 
 
@@ -163,11 +196,11 @@ def willr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 def aroon(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-    up = df['high'].rolling(period).apply(
-        lambda x: 100 * (period - np.argmax(x[::-1])) / period, raw=True)
-    down = df['low'].rolling(period).apply(
-        lambda x: 100 * (period - np.argmin(x[::-1])) / period, raw=True)
-    return pd.DataFrame({'aroon_up': up, 'aroon_down': down})
+    since_high = _bars_since_extreme(df['high'], period, np.argmax)
+    since_low = _bars_since_extreme(df['low'], period, np.argmin)
+    return pd.DataFrame({'aroon_up': 100 * (period - since_high) / period,
+                         'aroon_down': 100 * (period - since_low) / period},
+                        index=df.index)
 
 
 def mfi(df: pd.DataFrame, period: int = 20) -> pd.Series:

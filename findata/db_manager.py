@@ -9,12 +9,13 @@ ticker_meta is upserted.
 """
 
 import logging
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, create_engine, func, select, tuple_
+from sqlalchemy import and_, create_engine, event, func, select, tuple_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from tqdm.auto import tqdm
 
@@ -63,8 +64,23 @@ class DBManager:
         db_path = Path(db_path) if db_path is not None else DEFAULT_DB_PATH
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(f'sqlite:///{db_path}')
+        event.listen(self.engine, 'connect', self._set_sqlite_pragmas)
         Base.metadata.create_all(self.engine)
         self._ensure_schema()
+
+    @staticmethod
+    def _set_sqlite_pragmas(dbapi_conn, _record):
+        """Per-connection PRAGMAs applied on every new pooled connection.
+
+        WAL + synchronous=NORMAL is the big bulk-write win: commits no longer
+        fsync the database file on every transaction (the WAL is synced at
+        checkpoints instead), so the many small INSERT OR IGNORE transactions
+        during ingestion stop paying a disk sync each.
+        """
+        cur = dbapi_conn.cursor()
+        cur.execute('PRAGMA journal_mode=WAL')
+        cur.execute('PRAGMA synchronous=NORMAL')
+        cur.close()
 
     def _ensure_schema(self):
         """Add columns introduced after a table already exists on disk
@@ -95,15 +111,15 @@ class DBManager:
         Idempotent (INSERT OR IGNORE); counts are rows actually inserted.
         """
         prices = self._standardize_prices(prices)
-        tickers = prices.index.get_level_values('ticker').unique()
-        logger.info('Cold-start: seeding %d ticker(s)', len(tickers))
+        groups = prices.groupby(level='ticker', sort=False)
+        logger.info('Cold-start: seeding %d ticker(s)', len(groups))
         counts = {'price': 0, 'ema': 0, 'indicator': 0}
 
-        for ticker in tqdm(tickers, desc='Seeding', unit='ticker', disable=not progress):
-            sub = prices.xs(ticker, level='ticker', drop_level=False)
-            inserted = {'price': self._insert_prices(sub)}
-            calc_df = calc.calculate_all(sub)
-            inserted |= self._insert_calc_long(calc_df.melt(ignore_index=False).reset_index())
+        for ticker, sub in tqdm(groups, desc='Seeding', unit='ticker', disable=not progress):
+            calc_long = calc.calculate_all(sub).melt(ignore_index=False).reset_index()
+            with self._raw_txn() as conn:  # price + ema + indicator in one fsync
+                inserted = {'price': self._insert_prices(sub, conn=conn)}
+                inserted |= self._insert_calc_long(calc_long, conn=conn)
             if ticker in info.index:
                 self._upsert_meta(info.loc[[ticker]], yf_seeded=True)
             else:
@@ -145,7 +161,8 @@ class DBManager:
                 calc_df = calc.calculate_all(self.get_price_data(ticker, interval))
             long = calc_df.melt(ignore_index=False).reset_index(names='date')
             long['ticker'], long['interval'] = ticker, interval
-            inserted = self._insert_calc_long(long)
+            with self._raw_txn() as conn:  # ema + indicator in one fsync
+                inserted = self._insert_calc_long(long, conn=conn)
             counts['ema'] += inserted['ema']
             counts['indicator'] += inserted['indicator']
             logger.debug('%s/%s updated: %s', ticker, interval, inserted)
@@ -175,10 +192,10 @@ class DBManager:
         daily = idx[idx['interval'] == 'daily']
         return daily.groupby('ticker')['date'].max().rename('last_price_date').to_frame()
 
-    def _insert_prices(self, prices: pd.DataFrame) -> int:
-        return self._insert_ignore(PriceData, prices.reset_index())
+    def _insert_prices(self, prices: pd.DataFrame, conn=None) -> int:
+        return self._insert_ignore(PriceData, prices.reset_index(), conn=conn)
 
-    def _insert_calc_long(self, long: pd.DataFrame) -> dict:
+    def _insert_calc_long(self, long: pd.DataFrame, conn=None) -> dict:
         """Split a melted calculate_all frame into ema_data / indicator_data rows.
 
         Expects columns [interval, ticker, date, item, period, value].
@@ -191,11 +208,11 @@ class DBManager:
         emas['base'] = emas['item'].str[4:]
         emas = emas.rename(columns={'value': 'ema_value'})
         n_ema = self._insert_ignore(
-            EmaData, emas[['ticker', 'date', 'period', 'base', 'interval', 'ema_value']])
+            EmaData, emas[['ticker', 'date', 'period', 'base', 'interval', 'ema_value']], conn=conn)
 
         inds = long[~is_ema].rename(columns={'item': 'indicator', 'interval': 'freq'})
         n_ind = self._insert_ignore(
-            IndicatorData, inds[['ticker', 'date', 'freq', 'indicator', 'period', 'value']])
+            IndicatorData, inds[['ticker', 'date', 'freq', 'indicator', 'period', 'value']], conn=conn)
         return {'ema': n_ema, 'indicator': n_ind}
 
     def upsert_ticker_meta(self, info: pd.DataFrame, **flags):
@@ -216,26 +233,51 @@ class DBManager:
                 update_cols = {k: stmt.excluded[k] for k in record if k != 'ticker'}
                 conn.execute(stmt.on_conflict_do_update(index_elements=['ticker'], set_=update_cols))
 
-    def _insert_ignore(self, model, df: pd.DataFrame) -> int:
+    @contextmanager
+    def _raw_txn(self):
+        """A raw sqlite connection wrapping one transaction (one commit/fsync).
+
+        Pass the yielded connection to several ``_insert_ignore`` calls so
+        they share a single transaction instead of committing one-by-one --
+        e.g. a ticker's price + ema + indicator rows land in one fsync.
+        """
+        conn = self.engine.raw_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _insert_ignore(self, model, df: pd.DataFrame, conn=None) -> int:
         """Bulk INSERT OR IGNORE through the raw sqlite3 driver.
 
         The data is trusted (already validated upstream), so rows go in as
         plain tuples via executemany -- far faster than per-row dicts through
         the ORM layer. Returns the number of rows actually inserted
         (conflicting rows are excluded by sqlite's change counter).
+
+        With ``conn`` the caller owns the transaction (no commit/close here),
+        letting several inserts share one ``_raw_txn``; without it this opens
+        its own connection and commits the batch.
         """
         if df.empty:
             return 0
         sql = (f"INSERT OR IGNORE INTO {model.__tablename__} "
                f"({', '.join(df.columns)}) VALUES ({', '.join('?' * len(df.columns))})")
-        connection = self.engine.raw_connection()
+        own = conn is None
+        connection = self.engine.raw_connection() if own else conn
         try:
             cursor = connection.cursor()
             cursor.executemany(sql, self._tuple_rows(df))
-            connection.commit()
+            if own:
+                connection.commit()
             return cursor.rowcount
         finally:
-            connection.close()
+            if own:
+                connection.close()
 
     @staticmethod
     def _tuple_rows(df: pd.DataFrame) -> list[tuple]:
