@@ -52,7 +52,8 @@ def main(use_all=False):
                         format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
 
     db = DBManager(args.db_path)
-    tickers = TickerSampler(use_russell3000=True).tickers if use_all else [t.upper() for t in args.tickers]
+    tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]
+    tickers = ['AAPL', 'MSFT', 'SOFI']
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['yf_seeded'].fillna(False).astype(bool)])
@@ -70,7 +71,7 @@ def main(use_all=False):
 
     for i in range(0, len(todo), max_tickers):
         subset = todo[i:i + max_tickers]
-        data = YahooFinance(subset).request_ticker_financials()
+        data = YahooFinance(subset).request_ticker_financials(start='1/1/2005')
         if 'prices' not in data:
             logger.error('Download failed, nothing inserted.')
             return

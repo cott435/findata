@@ -101,7 +101,7 @@ class DBManager:
     # ------------------------------------------------------------------ #
 
     def add_ticker_data(self, info: pd.DataFrame, prices: pd.DataFrame,
-                        progress: bool = True) -> dict:
+                        progress: bool = True, daily_only=True) -> dict:
         """Cold-start ingestion from the yf.py output.
 
         ``info`` is indexed by ticker; ``prices`` by (interval, ticker, date).
@@ -116,6 +116,7 @@ class DBManager:
         counts = {'price': 0, 'ema': 0, 'indicator': 0}
 
         for ticker, sub in tqdm(groups, desc='Seeding', unit='ticker', disable=not progress):
+            sub = sub.loc[['daily']] if daily_only else sub
             calc_long = calc.calculate_all(sub).melt(ignore_index=False).reset_index()
             with self._raw_txn() as conn:  # price + ema + indicator in one fsync
                 inserted = {'price': self._insert_prices(sub, conn=conn)}
@@ -132,7 +133,7 @@ class DBManager:
         return counts
 
     def update_ticker_data(self, prices: pd.DataFrame, info: pd.DataFrame = None,
-                           progress: bool = True) -> dict:
+                           progress: bool = True, daily_only=True) -> dict:
         """Incremental ingestion of new bars for already-seeded tickers.
 
         Inserts the new price rows, then continues each EMA/indicator from
@@ -145,7 +146,10 @@ class DBManager:
         """
         prices = self._standardize_prices(prices)
         counts = {'price': self._insert_prices(prices), 'ema': 0, 'indicator': 0}
-        groups = list(prices.groupby(level=['interval', 'ticker']))
+        if daily_only:
+            groups = prices.loc[['daily']].groupby(level='ticker', sort=False)
+        else:
+            groups = list(prices.groupby(level=['interval', 'ticker']))
         logger.info('Incremental update: %d new price rows across %d ticker/interval group(s)',
                     counts['price'], len(groups))
 
@@ -184,6 +188,8 @@ class DBManager:
             df['split_ratio'] = 1.0
         df['dividend'] = df['dividend'].fillna(0.0)
         df['split_ratio'] = df['split_ratio'].replace(0.0, np.nan).fillna(1.0)
+        if any(df['close'].isna()):
+            print(f'NA found in close, total: {sum(df['close'].isna())}')
         return df[df['close'].notna()][PRICE_COLUMNS]
 
     @staticmethod
@@ -221,7 +227,7 @@ class DBManager:
         self._upsert_meta(info, **flags)
 
     def _upsert_meta(self, info: pd.DataFrame, **flags):
-        allowed = ['ticker', 'name', 'sector', 'industry', 'last_price_date',
+        allowed = ['ticker', 'name', 'sector', 'industry', 'last_price_date', 'first_price_date',
                    'last_filings_date', 'last_form4_date', 'yf_seeded', 'edgar_seeded']
         df = info.reset_index()
         records = self._records(df[[c for c in df.columns if c in allowed]])

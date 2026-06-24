@@ -39,6 +39,7 @@ def main(use_all=False):
     args.min_date = '2013-01-01'
     db = DBManager(args.db_path)
     tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]
+    tickers = ['AAPL', 'MSFT']
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['edgar_seeded'].fillna(False).astype(bool)])
@@ -56,6 +57,11 @@ def main(use_all=False):
     pipeline = EdgarPipeline(db=db, parse_extra_data=args.extra,
                              max_concurrency=args.concurrency, requests_per_second=args.rps,
                              decumulate_cashflow=args.decumulate_cashflow)
+
+    from findata.edgar_ import Company, parse_financials
+    facts = pipeline._fetch_facts_frame(Company('AAPL'))
+    data = parse_financials(facts, 'AAPL')
+
     counts = pipeline.run(todo, force=args.force, min_date=args.min_date)
 
     print(f'\nInserted: {counts}')

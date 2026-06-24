@@ -21,7 +21,6 @@ Run:
 
 import asyncio
 from findata.configs import EDGAR_IDENTITY, DATA_DIR
-from findata.edgar_ import SECPipeline
 
 TICKER = "MSFT"
 

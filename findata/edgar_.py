@@ -188,6 +188,7 @@ def parse_financials(facts: pd.DataFrame, ticker: str,
     df['period_end'] = pd.to_datetime(df['period_end'], errors='coerce')
     df['period_start'] = pd.to_datetime(df['period_start'], errors='coerce')
     df['filing_date'] = pd.to_datetime(df['filing_date'], errors='coerce')
+    #df["fiscal_year"] = (df["period_end"] - pd.Timedelta(days=10)).dt.year
     df['fiscal_quarter'] = df['fiscal_period'].map({'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'FY': 0})
     df = df[df['period_end'].notna()]
 
@@ -195,6 +196,7 @@ def parse_financials(facts: pd.DataFrame, ticker: str,
     duration = df[df['period_type'] == 'duration'].copy()
     duration = duration[duration['period_start'].notna()]
     duration['duration_days'] = (duration['period_end'] - duration['period_start']).dt.days
+    # TODO: need way to fix incorrect quarters and years in data without breaking back calcs
 
     income = _parse_income(duration)
     balance = _parse_balance(instant)
@@ -292,6 +294,7 @@ def _parse_balance(instant: pd.DataFrame) -> pd.DataFrame:
     rows['fiscal_year'] = rows['fiscal_year'].astype(int)
     rows['date'] = rows['period_end']
     rows = rows.drop_duplicates(subset=['item', 'date'], keep='first')
+    rows['fiscal_quarter'] = rows['fiscal_quarter'].replace({0: 4})
     return _finalize(rows, ['date', 'item', 'value', 'fiscal_year',
                             'fiscal_quarter', 'filed_date'])
 

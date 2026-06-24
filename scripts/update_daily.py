@@ -27,12 +27,11 @@ def update_yf(db: DBManager, tickers: list = None, dry_run: bool = False) -> dic
     """Fetch bars since each ticker's last_price_date and update the DB."""
     meta = db.get_ticker_meta()
     seeded = meta[meta['yf_seeded'].fillna(False).astype(bool)]
-    if tickers is not None:
-        tickers = [t.upper() for t in tickers]
-        unknown = sorted(set(tickers) - set(seeded.index))
-        if unknown:
-            logger.warning('Not yf-seeded, skipping: %s (run init_yf first)', unknown)
-        seeded = seeded[seeded.index.isin(tickers)]
+    tickers = list(meta.index) if tickers is None else [t.upper() for t in tickers]
+    unknown = sorted(set(tickers) - set(seeded.index))
+    if unknown:
+        logger.warning('Not yf-seeded, skipping: %s (run init_yf first)', unknown)
+    seeded = seeded[seeded.index.isin(tickers)]
     if seeded.empty:
         logger.info('No seeded tickers to update.')
         return {}

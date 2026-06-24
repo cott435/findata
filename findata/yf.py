@@ -4,6 +4,7 @@ from yahooquery import Ticker
 from typing import Union, List, Tuple, Dict, Any
 import asyncio
 from datetime import timedelta, datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -61,21 +62,38 @@ class YahooFinance:
             # ensure week date is only the last full week
             final_week = get_monday(datetime.today(), prior_week=True)
             week_hist = week_hist[week_hist.index.get_level_values('date') <= final_week.date()]
+            now = datetime.now(ZoneInfo("America/New_York"))
+
+            market_open = (
+                    now.weekday() < 5 and  # Mon-Fri
+                    (now.hour > 9 or (now.hour == 9 and now.minute >= 30)) and
+                    now.hour < 16
+            )
+
+            if market_open:
+                today = now.date()
+                day_hist = day_hist[day_hist.index.get_level_values('date') != today]
 
             candles = pd.concat([day_hist, week_hist], keys=['daily','weekly'], names=['interval', 'ticker', 'date'])
             candles = self._adjust_ohlc(candles)
-
+            #candles=candles[candles.index.get_level_values('date')<pd.to_datetime('3/1/26').date()]
             last_price_dates = (
                 candles.loc['daily']
                 .groupby(level='ticker')
                 .apply(lambda x: x.index.get_level_values('date').max())
             )
+            first_price_dates = (
+                candles.loc['daily']
+                .groupby(level='ticker')
+                .apply(lambda x: x.index.get_level_values('date').min())
+            )
             t_info = [
                 {
                     "ticker": ticker,
-                    'sector': info.get('sector', 'etf'),
-                    'industry': info.get('industry', 'etf'),
+                    'sector': info.get('sector', 'ETF'),
+                    'industry': info.get('industry', 'ETF'),
                     'last_price_date': last_price_dates.loc[ticker],
+                    'first_price_date': first_price_dates.loc[ticker]
                 } for ticker, info in info.items() if isinstance(info, dict)
             ]
             t_info = pd.DataFrame(t_info).set_index('ticker')

@@ -23,6 +23,7 @@ class TickerMeta(Base):
     name = Column(String)
     sector = Column(String)
     industry = Column(String)
+    first_price_date = Column(Date)
     last_price_date = Column(Date)
     last_filings_date = Column(Date)   # newest 10-K/10-Q/8-K filing processed
     last_form4_date = Column(Date)     # newest Form 4 filing processed
