@@ -9,6 +9,7 @@ ticker_meta is upserted.
 """
 
 import logging
+import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -57,12 +58,13 @@ class DBManager:
     'add' computes it from stored price data, inserts it, and returns it.
     """
 
-    def __init__(self, db_path=None, if_missing: str = 'raise'):
+    def __init__(self, db_path=None, db_name=None, if_missing: str = 'raise'):
         if if_missing not in ('raise', 'add'):
             raise ValueError("if_missing must be 'raise' or 'add'")
         self.if_missing = if_missing
-        db_path = Path(db_path) if db_path is not None else DEFAULT_DB_PATH
+        db_path = Path(db_path) if db_path is not None else Path(DATA_DIR) / db_name if db_name else DEFAULT_DB_PATH
         db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db_path = db_path
         self.engine = create_engine(f'sqlite:///{db_path}')
         event.listen(self.engine, 'connect', self._set_sqlite_pragmas)
         Base.metadata.create_all(self.engine)
@@ -95,6 +97,65 @@ class DBManager:
                         logger.info('Migrating %s: adding column %s', table, column)
                         conn.exec_driver_sql(
                             f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}')
+
+    @staticmethod
+    def _resolve_db_path(name) -> Path:
+        """A bare name lands in the default data dir; a path is used as given.
+        A missing .db suffix is appended."""
+        path = Path(name)
+        if path.suffix != '.db':
+            path = path.with_name(path.name + '.db')
+        if path.parent == Path('.'):
+            path = DEFAULT_DB_PATH.parent / path.name
+        return path
+
+    def copy_subset(self, tickers, new_name, source_name=None) -> Path:
+        """Write a new SQLite db holding only the given tickers' rows.
+
+        Every table is keyed by ticker, so each is filtered with the same
+        ticker list -- the result is a small, self-contained extract that is
+        cheap to transfer. ``source_name`` defaults to this manager's db; a
+        bare name resolves under the default data dir. Returns the new path.
+        Rows stream entirely inside sqlite (ATTACH + INSERT...SELECT), so
+        nothing is loaded into Python.
+        """
+        tickers = [tickers] if isinstance(tickers, str) else list(tickers)
+        if not tickers:
+            raise ValueError('tickers must be a non-empty list')
+        source = self._resolve_db_path(source_name) if source_name else self.db_path
+        dest = self._resolve_db_path(new_name)
+        if dest.resolve() == Path(source).resolve():
+            raise ValueError('destination db must differ from source')
+        if not Path(source).exists():
+            raise FileNotFoundError(f'source db not found: {source}')
+
+        # build an empty full schema in the destination, then release it so
+        # it can be ATTACHed to the source connection
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest_engine = create_engine(f'sqlite:///{dest}')
+        Base.metadata.create_all(dest_engine)
+        dest_engine.dispose()
+
+        placeholders = ','.join('?' * len(tickers))
+        conn = sqlite3.connect(str(source))
+        try:
+            conn.execute('ATTACH DATABASE ? AS dest', (str(dest),))
+            counts = {}
+            for table_name, table in Base.metadata.tables.items():
+                cols = ', '.join(c.name for c in table.columns)
+                cur = conn.execute(
+                    f'INSERT INTO dest.{table_name} ({cols}) '
+                    f'SELECT {cols} FROM main.{table_name} '
+                    f'WHERE ticker IN ({placeholders})', tickers)
+                counts[table_name] = cur.rowcount
+            conn.commit()
+        finally:
+            conn.close()
+
+        logger.info('Copied subset %s -> %s for %d ticker(s): %s rows',
+                    Path(source).name, dest.name, len(tickers), sum(counts.values()))
+        logger.debug('Per-table rows copied: %s', counts)
+        return dest
 
     # ------------------------------------------------------------------ #
     # ingestion

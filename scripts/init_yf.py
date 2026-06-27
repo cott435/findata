@@ -15,13 +15,14 @@ import logging
 import pandas as pd
 from yahooquery import Ticker
 
+from findata.configs import setup_logging
 from findata.db_manager import DBManager
 from findata.yf import YahooFinance
 from findata.ticker_sampling import TickerSampler
 
 logger = logging.getLogger('scripts.init_yf')
 
-DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'TEM', 'SOFI', 'MRNA']
+DEFAULT_TICKERS = TickerSampler().sample(200, 123)
 
 
 def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:
@@ -48,12 +49,10 @@ def main(use_all=False):
     parser.add_argument('--force', action='store_true',
                         help='Seed tickers even if already in the database.')
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
+    setup_logging('init_yf.log')
 
     db = DBManager(args.db_path)
-    tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]
-    tickers = ['AAPL', 'MSFT', 'SOFI']
+    tickers = TickerSampler().tickers if use_all else [t.upper() for t in args.tickers]
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['yf_seeded'].fillna(False).astype(bool)])
@@ -82,4 +81,4 @@ def main(use_all=False):
 
 
 if __name__ == '__main__':
-    main(use_all=True)
+    main(use_all=False)

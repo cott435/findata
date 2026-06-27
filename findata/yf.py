@@ -19,8 +19,21 @@ class YahooFinance:
     def __init__(self, tickers: Union[str, List[str]]):
         if isinstance(tickers, str):
             tickers = [tickers]
-        self.tickers = tickers
-        self.t = Ticker(tickers, asynchronous=True)
+        self.tickers = [t.replace(".", "-") for t in tickers]
+        self.t = Ticker(self.tickers, asynchronous=True)
+
+    @staticmethod
+    def find_ohlc_violations(df):
+        violations = df[
+            (df['open'] > df['high']) | (df['open'] < df['low']) |
+            (df["close"] > df['high']) | (df["close"] < df['low']) |
+            (df['high'] < df['low'])
+            ].copy()
+        if len(violations) > 0:
+            logger.warning(f'Found {len(violations)} violations: {violations.index}')
+            df["open"] = df["open"].clip(lower=df["low"], upper=df["high"])
+            df["close"] = df["close"].clip(lower=df["low"], upper=df["high"])
+        return df
 
     @staticmethod
     def _adjust_ohlc(df: pd.DataFrame) -> pd.DataFrame:
@@ -31,6 +44,10 @@ class YahooFinance:
                 if col in df:
                     df[col] = df[col] * ratio
         return df.drop(columns=["adjclose"])
+
+    def _fix_ohlc(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        return self._adjust_ohlc(self.find_ohlc_violations(df))
 
     def request_ticker_financials(self, start=None) -> Dict[str, Any]:
         logger.info('Requesting Yahoo Finance data for %d ticker(s)%s',
@@ -75,7 +92,7 @@ class YahooFinance:
                 day_hist = day_hist[day_hist.index.get_level_values('date') != today]
 
             candles = pd.concat([day_hist, week_hist], keys=['daily','weekly'], names=['interval', 'ticker', 'date'])
-            candles = self._adjust_ohlc(candles)
+            candles = self._fix_ohlc(candles)
             #candles=candles[candles.index.get_level_values('date')<pd.to_datetime('3/1/26').date()]
             last_price_dates = (
                 candles.loc['daily']
@@ -97,6 +114,10 @@ class YahooFinance:
                 } for ticker, info in info.items() if isinstance(info, dict)
             ]
             t_info = pd.DataFrame(t_info).set_index('ticker')
+            skipped = [t for t, i in info.items() if isinstance(info, str)]
+            if skipped:
+                logger.info(f"Skipping {len(skipped)} tickers due to invalid yahoo response: {skipped}")
+            candles = candles[candles.index.get_level_values("ticker").isin(t_info.index)]
             return {
                     "info": t_info,
                     "prices": candles,

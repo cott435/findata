@@ -13,6 +13,7 @@ import argparse
 import logging
 from datetime import date, timedelta
 
+from findata.configs import setup_logging
 from findata.db_manager import DBManager
 from findata.yf import YahooFinance
 
@@ -91,8 +92,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true',
                         help='Report new bars without writing anything.')
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
+    setup_logging('update_daily.log')
 
     db = DBManager(args.db_path)
     counts = update_yf(db, tickers=args.tickers, dry_run=args.dry_run)

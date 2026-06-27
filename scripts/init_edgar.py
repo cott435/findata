@@ -14,6 +14,7 @@ Run from the project root:
 import argparse
 import logging
 
+from findata.configs import setup_logging
 from findata.db_manager import DBManager
 from findata.edgar_ import EdgarPipeline
 from findata.ticker_sampling import TickerSampler
@@ -34,8 +35,7 @@ def main(use_all=False):
     parser.add_argument('--decumulate-cashflow', action='store_true',
                         help='Also store de-cumulated single-quarter cash flow rows.')
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-7s %(name)s | %(message)s')
+    setup_logging('init_edgar.log')
     args.min_date = '2013-01-01'
     db = DBManager(args.db_path)
     tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]

@@ -1,30 +1,50 @@
 import random
-from .configs import DATA_DIR
+from findata.configs import DATA_DIR
 import pandas as pd
+import re
 
+def parse_market_cap(val):
+    if pd.isna(val):
+        return None
+    val = str(val).strip()
+    match = re.match(r"^([\d.]+)([MBT]?)$", val)
+    if not match:
+        return None
+    num, suffix = match.groups()
+    multiplier = {"": 1, "M": 1e6, "B": 1e9, "T": 1e12}[suffix]
+    return float(num) * multiplier
 
 class TickerSampler:
     def __init__(
         self,
-        use_sp500: bool = True,
+        use_sp500: bool = False,
         use_russell3000: bool = False,
         sp500_date_limit: str | None = '1-1-2010',
+        market_cap_floor=300_000_000
     ):
         """
         use_sp500: include tickers from S&P 500 historical data
         use_russell3000: include current Russell 3000 tickers
         sp500_date_limit: only include S&P 500 tickers from rows on/after this date (e.g. '2010-01-01')
         """
-        if not use_sp500 and not use_russell3000:
-            raise ValueError("At least one of use_sp500 or use_russell3000 must be True")
-
         self._tickers: set[str] = set()
+        self.market_cap_floor = market_cap_floor
 
         if use_sp500:
             self._tickers.update(self._load_sp500(sp500_date_limit))
 
         if use_russell3000:
             self._tickers.update(self._load_russell3000())
+
+        if not(use_sp500 or use_russell3000):
+            self._tickers.update(self._load_all())
+
+    def _load_all(self) -> set[str]:
+        us_path = DATA_DIR / "us_tickers.xlsx"
+        df = pd.read_excel(us_path)
+        df["market_cap_numeric"] = df["Market Cap"].apply(parse_market_cap)
+        df_filtered = df[df["market_cap_numeric"] >= self.market_cap_floor].copy()
+        return set(df_filtered["Ticker"].dropna().astype(str))
 
     def _load_sp500(self, date_limit: str | None) -> set[str]:
         sp500_path = DATA_DIR / "S&P500_Historical.csv"
@@ -64,3 +84,7 @@ class TickerSampler:
             raise ValueError("frac must be in (0, 1]")
         n = max(1, round(len(self._tickers) * frac))
         return self.sample(n, seed=seed)
+
+if __name__ == "__main__":
+    t = TickerSampler()
+    t.sample(30, 123)

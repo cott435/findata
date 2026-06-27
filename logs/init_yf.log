@@ -1,0 +1,22 @@
+2026-06-27 13:02:07,098 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/init_yf.log
+2026-06-27 13:02:11,961 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:02:13,774 INFO    findata.db_manager | Cold-start: seeding 29 ticker(s)
+2026-06-27 13:02:35,589 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 102595, 'ema': 1128545, 'indicator': 2148180}
+2026-06-27 13:02:36,292 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:02:38,090 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-27 13:03:01,946 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 110240, 'ema': 1212640, 'indicator': 2306533}
+2026-06-27 13:03:02,604 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:03:04,378 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-27 13:03:29,052 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 113111, 'ema': 1244221, 'indicator': 2364455}
+2026-06-27 13:03:29,795 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:03:31,785 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-27 13:03:51,513 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 91423, 'ema': 1005653, 'indicator': 1898700}
+2026-06-27 13:03:52,297 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:03:54,273 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-27 13:04:16,422 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 102596, 'ema': 1128556, 'indicator': 2145814}
+2026-06-27 13:04:17,203 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-27 13:04:19,069 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-27 13:04:43,775 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 115036, 'ema': 1265396, 'indicator': 2409146}
+2026-06-27 13:04:44,326 INFO    findata.yf | Requesting Yahoo Finance data for 20 ticker(s) from 1/1/2005
+2026-06-27 13:04:45,715 INFO    findata.db_manager | Cold-start: seeding 20 ticker(s)
+2026-06-27 13:05:02,058 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 77150, 'ema': 848650, 'indicator': 1615133}
