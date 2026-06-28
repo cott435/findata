@@ -17,9 +17,8 @@ def parse_market_cap(val):
 class TickerSampler:
     def __init__(
         self,
-        use_sp500: bool = False,
-        use_russell3000: bool = False,
-        sp500_date_limit: str | None = '1-1-2010',
+        use_all=False,
+        date_limit: str | None = '1-1-2018',
         market_cap_floor=300_000_000
     ):
         """
@@ -29,15 +28,18 @@ class TickerSampler:
         """
         self._tickers: set[str] = set()
         self.market_cap_floor = market_cap_floor
+        self.date_limit = pd.to_datetime(date_limit)
 
-        if use_sp500:
-            self._tickers.update(self._load_sp500(sp500_date_limit))
-
-        if use_russell3000:
-            self._tickers.update(self._load_russell3000())
-
-        if not(use_sp500 or use_russell3000):
+        if use_all:
             self._tickers.update(self._load_all())
+        else:
+            self._tickers.update(self._load_subset())
+
+    def _load_subset(self):
+        us_path = DATA_DIR / "all_info.xlsx"
+        df = pd.read_excel(us_path)
+        df = df[df['first_price_date'] < self.date_limit]
+        return set(df["ticker"].dropna().astype(str))
 
     def _load_all(self) -> set[str]:
         us_path = DATA_DIR / "us_tickers.xlsx"

@@ -13,7 +13,11 @@ def get_ticker_data_df(tickers: str | Iterable[str], start_date: str = '2012-01-
     return db.get_all_data(tickers, 'daily', wide=True, start=start_date, end=end_date)
 
 def get_all_data(tickers: str | Iterable[str], start_date: str = '2012-01-01', end_date: str = None) -> tuple:
-    return get_ticker_data_df(tickers, start_date, end_date), get_ticker_meta(tickers)
+    meta = get_ticker_meta(tickers)
+    skipped = [t for t in tickers if t not in meta.index]
+    if skipped:
+        print(f"Skipping tickers not in database: {skipped}")
+    return get_ticker_data_df(tickers, start_date, end_date), meta
 
 if __name__ == '__main__':
-    df = get_ticker_data_df(['AAPL', 'SOFI'])
+    df = get_all_data(['AAPL', 'SOFI'])

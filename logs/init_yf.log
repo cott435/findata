@@ -1,22 +1,111 @@
-2026-06-27 13:02:07,098 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/init_yf.log
-2026-06-27 13:02:11,961 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:02:13,774 INFO    findata.db_manager | Cold-start: seeding 29 ticker(s)
-2026-06-27 13:02:35,589 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 102595, 'ema': 1128545, 'indicator': 2148180}
-2026-06-27 13:02:36,292 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:02:38,090 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
-2026-06-27 13:03:01,946 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 110240, 'ema': 1212640, 'indicator': 2306533}
-2026-06-27 13:03:02,604 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:03:04,378 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
-2026-06-27 13:03:29,052 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 113111, 'ema': 1244221, 'indicator': 2364455}
-2026-06-27 13:03:29,795 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:03:31,785 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
-2026-06-27 13:03:51,513 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 91423, 'ema': 1005653, 'indicator': 1898700}
-2026-06-27 13:03:52,297 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:03:54,273 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
-2026-06-27 13:04:16,422 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 102596, 'ema': 1128556, 'indicator': 2145814}
-2026-06-27 13:04:17,203 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
-2026-06-27 13:04:19,069 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
-2026-06-27 13:04:43,775 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 115036, 'ema': 1265396, 'indicator': 2409146}
-2026-06-27 13:04:44,326 INFO    findata.yf | Requesting Yahoo Finance data for 20 ticker(s) from 1/1/2005
-2026-06-27 13:04:45,715 INFO    findata.db_manager | Cold-start: seeding 20 ticker(s)
-2026-06-27 13:05:02,058 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 77150, 'ema': 848650, 'indicator': 1615133}
+2026-06-28 09:54:37,568 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/init_yf.log
+2026-06-28 09:54:42,678 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:54:44,565 INFO    findata.yf | Liquidity filter ACMR: dropping 19 rows (before 2017-11-30), 0 zero-volume
+2026-06-28 09:54:44,568 INFO    findata.yf | Liquidity filter ATRC: dropping 802 rows (before 2008-10-13), 2 zero-volume
+2026-06-28 09:54:44,576 INFO    findata.yf | Liquidity filter CECO: dropping 1785 rows (before 2012-02-03), 0 zero-volume
+2026-06-28 09:54:44,587 INFO    findata.yf | Liquidity filter KODK: dropping 38 rows (before 2013-11-14), 3 zero-volume
+2026-06-28 09:54:44,601 INFO    findata.yf | Liquidity filter total: 2644 daily rows dropped (5 zero-volume)
+2026-06-28 09:54:44,610 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('ATRC', 2010-11-26)],
+           names=['symbol', 'date'])
+2026-06-28 09:54:44,618 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('CNC', 2020-02-26)],
+           names=['symbol', 'date'])
+2026-06-28 09:54:44,709 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:55:12,016 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 135454, 'ema': 1489994, 'indicator': 2838016}
+2026-06-28 09:55:12,604 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:55:14,319 INFO    findata.yf | Liquidity filter ALNT: dropping 2360 rows (before 2014-05-20), 47 zero-volume
+2026-06-28 09:55:14,325 INFO    findata.yf | Liquidity filter EXK: dropping 19 rows (before 2006-05-23), 1 zero-volume
+2026-06-28 09:55:14,339 INFO    findata.yf | Liquidity filter RCKY: dropping 1162 rows (before 2009-08-14), 3 zero-volume
+2026-06-28 09:55:14,344 INFO    findata.yf | Liquidity filter TOWN: dropping 694 rows (before 2007-10-05), 2 zero-volume
+2026-06-28 09:55:14,347 INFO    findata.yf | Liquidity filter UA: dropping 27 rows (before 2016-05-02), 2 zero-volume
+2026-06-28 09:55:14,348 INFO    findata.yf | Liquidity filter UFPT: dropping 1745 rows (before 2011-12-06), 12 zero-volume
+2026-06-28 09:55:14,356 INFO    findata.yf | Liquidity filter total: 6007 daily rows dropped (67 zero-volume)
+2026-06-28 09:55:14,367 INFO    findata.yf | Dropping 5 rows for 0 volume day: MultiIndex([('EXK', 2006-07-03),
+            ('EXK', 2006-08-07),
+            ('EXK', 2006-10-09),
+            ('EXK', 2006-11-24),
+            ('EXK', 2006-12-26)],
+           names=['symbol', 'date'])
+2026-06-28 09:55:14,380 INFO    findata.yf | Dropping 2 rows for 0 volume day: MultiIndex([('SMFG', 2006-11-24),
+            ('SMFG', 2007-11-28)],
+           names=['symbol', 'date'])
+2026-06-28 09:55:14,384 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('UA', 2017-09-01)],
+           names=['symbol', 'date'])
+2026-06-28 09:55:14,419 WARNING findata.yf | Found 1 violations: MultiIndex([('daily', 'UA', 2021-05-05)],
+           names=['interval', 'ticker', 'date'])
+2026-06-28 09:55:14,466 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:55:42,118 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 134230, 'ema': 1476530, 'indicator': 2812315}
+2026-06-28 09:55:42,639 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:55:44,415 INFO    findata.yf | Liquidity filter ATRO: dropping 87 rows (before 2005-05-09), 3 zero-volume
+2026-06-28 09:55:44,442 INFO    findata.yf | Liquidity filter TDC: dropping 19 rows (before 2007-10-26), 1 zero-volume
+2026-06-28 09:55:44,446 INFO    findata.yf | Liquidity filter UUUU: dropping 1561 rows (before 2013-05-30), 142 zero-volume
+2026-06-28 09:55:44,449 INFO    findata.yf | Liquidity filter total: 1667 daily rows dropped (146 zero-volume)
+2026-06-28 09:55:44,458 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('ATRO', 2006-03-29)],
+           names=['symbol', 'date'])
+2026-06-28 09:55:44,553 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:56:13,281 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 137720, 'ema': 1514920, 'indicator': 2885607}
+2026-06-28 09:56:13,903 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:56:15,795 INFO    findata.yf | Liquidity filter BHF: dropping 27 rows (before 2017-08-23), 1 zero-volume
+2026-06-28 09:56:15,798 INFO    findata.yf | Liquidity filter BXC: dropping 3072 rows (before 2017-03-17), 2 zero-volume
+2026-06-28 09:56:15,799 INFO    findata.yf | Liquidity filter CAMT: dropping 2245 rows (before 2013-12-03), 27 zero-volume
+2026-06-28 09:56:15,803 INFO    findata.yf | Liquidity filter DNN: dropping 104 rows (before 2005-07-11), 3 zero-volume
+2026-06-28 09:56:15,809 INFO    findata.yf | Liquidity filter JHX: dropping 2602 rows (before 2015-05-06), 125 zero-volume
+2026-06-28 09:56:15,816 INFO    findata.yf | Liquidity filter PFBC: dropping 1781 rows (before 2012-01-30), 28 zero-volume
+2026-06-28 09:56:15,818 INFO    findata.yf | Liquidity filter RIOT: dropping 255 rows (before 2017-04-04), 4 zero-volume
+2026-06-28 09:56:15,827 INFO    findata.yf | Liquidity filter total: 10086 daily rows dropped (190 zero-volume)
+2026-06-28 09:56:15,844 INFO    findata.yf | Dropping 9 rows for 0 volume day: MultiIndex([('DNN', 2005-08-01),
+            ('DNN', 2005-10-10),
+            ('DNN', 2006-05-22),
+            ('DNN', 2006-07-03),
+            ('DNN', 2006-08-07),
+            ('DNN', 2006-10-09),
+            ('DNN', 2006-11-24),
+            ('DNN', 2006-12-26),
+            ('DNN', 2007-02-05)],
+           names=['symbol', 'date'])
+2026-06-28 09:56:15,929 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:56:42,540 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 129235, 'ema': 1421585, 'indicator': 2707417}
+2026-06-28 09:56:43,130 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:56:45,001 INFO    findata.yf | Liquidity filter ALLT: dropping 567 rows (before 2009-02-20), 4 zero-volume
+2026-06-28 09:56:45,007 INFO    findata.yf | Liquidity filter CRMD: dropping 881 rows (before 2013-11-11), 42 zero-volume
+2026-06-28 09:56:45,009 INFO    findata.yf | Liquidity filter DCOM: dropping 1128 rows (before 2009-06-26), 166 zero-volume
+2026-06-28 09:56:45,021 INFO    findata.yf | Liquidity filter NRIM: dropping 1751 rows (before 2011-12-14), 29 zero-volume
+2026-06-28 09:56:45,034 INFO    findata.yf | Liquidity filter TBPH: dropping 28 rows (before 2014-06-26), 7 zero-volume
+2026-06-28 09:56:45,036 INFO    findata.yf | Liquidity filter WINA: dropping 2877 rows (before 2016-06-08), 217 zero-volume
+2026-06-28 09:56:45,040 INFO    findata.yf | Liquidity filter total: 7232 daily rows dropped (465 zero-volume)
+2026-06-28 09:56:45,050 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('CRMD', 2019-04-03)],
+           names=['symbol', 'date'])
+2026-06-28 09:56:45,102 WARNING findata.yf | Found 1 violations: MultiIndex([('daily', 'WLY', 2021-05-05)],
+           names=['interval', 'ticker', 'date'])
+2026-06-28 09:56:45,152 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:57:14,552 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 140597, 'ema': 1546567, 'indicator': 2946020}
+2026-06-28 09:57:15,101 INFO    findata.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-06-28 09:57:17,905 INFO    findata.yf | Liquidity filter ATNI: dropping 313 rows (before 2006-03-31), 50 zero-volume
+2026-06-28 09:57:17,906 INFO    findata.yf | Liquidity filter CACC: dropping 338 rows (before 2006-05-08), 13 zero-volume
+2026-06-28 09:57:17,910 INFO    findata.yf | Liquidity filter CELH: dropping 2431 rows (before 2016-09-15), 62 zero-volume
+2026-06-28 09:57:17,916 INFO    findata.yf | Liquidity filter GABC: dropping 1054 rows (before 2009-03-12), 20 zero-volume
+2026-06-28 09:57:17,917 INFO    findata.yf | Liquidity filter GDDY: dropping 19 rows (before 2015-04-28), 1 zero-volume
+2026-06-28 09:57:17,918 INFO    findata.yf | Liquidity filter GEVO: dropping 1305 rows (before 2016-04-19), 0 zero-volume
+2026-06-28 09:57:17,929 INFO    findata.yf | Liquidity filter MYRG: dropping 67 rows (before 2008-11-17), 4 zero-volume
+2026-06-28 09:57:17,932 INFO    findata.yf | Liquidity filter NTRA: dropping 20 rows (before 2015-07-30), 2 zero-volume
+2026-06-28 09:57:17,938 INFO    findata.yf | Liquidity filter VKTX: dropping 159 rows (before 2015-12-11), 1 zero-volume
+2026-06-28 09:57:17,942 INFO    findata.yf | Liquidity filter VSTM: dropping 354 rows (before 2013-06-26), 0 zero-volume
+2026-06-28 09:57:17,942 INFO    findata.yf | Liquidity filter total: 6060 daily rows dropped (153 zero-volume)
+2026-06-28 09:57:17,957 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('GABC', 2009-05-13)],
+           names=['symbol', 'date'])
+2026-06-28 09:57:17,972 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('UBS', 2014-12-19)],
+           names=['symbol', 'date'])
+2026-06-28 09:57:18,045 INFO    findata.db_manager | Cold-start: seeding 30 ticker(s)
+2026-06-28 09:57:44,276 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 125362, 'ema': 1378982, 'indicator': 2626080}
+2026-06-28 09:57:44,850 INFO    findata.yf | Requesting Yahoo Finance data for 20 ticker(s) from 1/1/2005
+2026-06-28 09:57:46,146 INFO    findata.yf | Liquidity filter CUBI: dropping 309 rows (before 2013-06-07), 158 zero-volume
+2026-06-28 09:57:46,148 INFO    findata.yf | Liquidity filter FISI: dropping 700 rows (before 2007-10-15), 0 zero-volume
+2026-06-28 09:57:46,156 INFO    findata.yf | Liquidity filter NVMI: dropping 1171 rows (before 2009-08-27), 86 zero-volume
+2026-06-28 09:57:46,160 INFO    findata.yf | Liquidity filter P: dropping 19 rows (before 2015-11-02), 1 zero-volume
+2026-06-28 09:57:46,169 INFO    findata.yf | Liquidity filter UTL: dropping 909 rows (before 2008-08-13), 5 zero-volume
+2026-06-28 09:57:46,170 INFO    findata.yf | Liquidity filter total: 3108 daily rows dropped (250 zero-volume)
+2026-06-28 09:57:46,178 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('FISI', 2007-11-29)],
+           names=['symbol', 'date'])
+2026-06-28 09:57:46,192 INFO    findata.yf | Dropping 1 rows for 0 volume day: MultiIndex([('TFSL', 2014-01-02)],
+           names=['symbol', 'date'])
+2026-06-28 09:57:46,248 INFO    findata.db_manager | Cold-start: seeding 20 ticker(s)
+2026-06-28 09:58:04,152 INFO    findata.db_manager | Cold-start done, rows inserted: {'price': 84709, 'ema': 931799, 'indicator': 1774536}

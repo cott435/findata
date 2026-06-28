@@ -3,52 +3,32 @@ import pandas as pd
 
 from findata.yf import YahooFinance
 from findata.ticker_sampling import TickerSampler
+import time
 
-def find_liquidity_start(df,
-                         window=20,  # rolling window size (trading days)
-                         min_volume=1000,  # what counts as "real" volume
-                         max_zero_frac=0.05,  # max fraction of zero/low-vol days allowed in window
-                         ):
-    """
-    df must have a 'volume' column, sorted by date ascending.
-    Returns the index (date) where sustained liquidity begins.
-    """
-    is_liquid_day = (df['volume'] >= min_volume).astype(int)
+tickers = list(TickerSampler()._tickers)
 
-    # rolling fraction of liquid days in the window
-    rolling_liquid_frac = is_liquid_day.rolling(window, min_periods=1).mean()
+max_tickers = 40
+infos = []
 
-    # a window "passes" if zero/low-vol days are rare enough
-    stable = rolling_liquid_frac >= (1 - max_zero_frac)
+for i in range(0, len(tickers), max_tickers):
+    subset = tickers[i:i + max_tickers]
+    try:
+        data = YahooFinance(subset).request_ticker_financials(start='1/1/2014')
+        info, prices = data['info'], data['prices'].loc['daily']
+    except Exception as e:
+        print(e)
+        time.sleep(61)
+        data = YahooFinance(subset).request_ticker_financials(start='1/1/2014')
+        info, prices = data['info'], data['prices'].loc['daily']
+    infos.append(info)
 
-    if not stable.any():
-        return None  # never reaches a stable liquid regime
+final = pd.concat(infos)
+final.to_excel('all_info.xlsx')
 
-    start_idx = stable.idxmax()
-    return start_idx
+f = final[final['first_price_date']<pd.to_datetime('1/1/2018').date()]
+f.to_excel('all_info_before_JAN2018.xlsx')
 
-
-# Usage per ticker:
-def filter_ticker(df):
-    start = find_liquidity_start(df)
-    if start is None:
-        return df.iloc[0:0]  # drop entirely — never became liquid
-    return df.loc[start:]
-
-
-tickers = ['ACAD', 'ACHC', 'AX', 'BFC', 'CEPV', 'CURR', 'EDN', 'EH', 'ESEA',
-       'IEAG', 'KRP', 'LILAK', 'MBVI', 'OPFI', 'PRTA', 'SIM', 'WGS', 'ZVRA']
-
-data = YahooFinance(tickers).request_ticker_financials(start='1/1/2005')
-info, prices = data['info'], data['prices'].loc['daily']
-
-p = prices.groupby('ticker').apply(filter_ticker)
-
-vol0 = prices['volume'].eq(0).groupby(['ticker']).sum()
-vol5 = vol0[vol0 > 5]
-
-
-
+d = 1
 
 
 
