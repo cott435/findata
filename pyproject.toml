@@ -13,6 +13,9 @@ dependencies = [
     "tqdm",
     "numpy",
     "pandas",
+    "seaborn",
+    "matplotlib",
+    "scikit-learn"
 ]
 
 [tool.setuptools.packages.find]

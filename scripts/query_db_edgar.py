@@ -15,14 +15,13 @@ Run from the project root after init_edgar:
 """
 
 import argparse
-import json
 import logging
 from pathlib import Path
 
 import pandas as pd
 
-from findata.db_manager import DBManager
-from findata.edgar_ import EdgarPipeline
+from findata.database.db_manager import DBManager
+from findata.database.edgar_ import EdgarPipeline
 
 
 def banner(title):

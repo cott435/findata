@@ -1,8 +1,7 @@
-import numpy as np
 import pandas as pd
 
-from findata.yf import YahooFinance
-from findata.ticker_sampling import TickerSampler
+from findata import YahooFinance
+from findata.database.ticker_sampling import TickerSampler
 import time
 
 tickers = list(TickerSampler()._tickers)

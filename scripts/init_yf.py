@@ -16,9 +16,9 @@ import pandas as pd
 from yahooquery import Ticker
 
 from findata.configs import setup_logging
-from findata.db_manager import DBManager
-from findata.yf import YahooFinance
-from findata.ticker_sampling import TickerSampler
+from findata.database.db_manager import DBManager
+from findata import YahooFinance
+from findata.database.ticker_sampling import TickerSampler
 
 logger = logging.getLogger('scripts.init_yf')
 

@@ -6,6 +6,8 @@ findata/edgar_.py
 findata/edgar_test.py
 findata/tables.py
 findata/technical_calculators.py
+findata/ticker_sampling.py
+findata/utils.py
 findata/yf.py
 findata.egg-info/PKG-INFO
 findata.egg-info/SOURCES.txt

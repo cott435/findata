@@ -14,14 +14,11 @@ If the ticker isn't seeded yet it is pulled from Yahoo and seeded first.
 """
 
 import argparse
-import sys
-from pathlib import Path
-
 
 import pandas as pd
 
-from findata.db_manager import DBManager, MissingItemsError
-from findata.yf import YahooFinance
+from findata.database.db_manager import DBManager, MissingItemsError
+from findata import YahooFinance
 
 
 def banner(title):

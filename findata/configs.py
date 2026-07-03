@@ -1,6 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from findata.database.technical_calculators import INDICATOR_WINDOWS, INDICATOR_OUTPUTS
 
 DB_NAME = "stock.db"
 EDGAR_IDENTITY = "Connor ctt7729@gmail.com"
@@ -15,6 +16,8 @@ LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 # third-party loggers that flood INFO; kept at WARNING so our logs stay readable
 _NOISY_LOGGERS = ("edgar", "urllib3", "asyncio", "httpx", "httpcore")
 
+DATA_MAP = INDICATOR_OUTPUTS
+TECHNICAL_WINDOWS = {k:v[0] if isinstance(v, list) else v for k, v in INDICATOR_WINDOWS.items()}
 
 def setup_logging(log_file: str = "findata.log", level=logging.INFO,
                   console: bool = True) -> Path:
@@ -49,4 +52,26 @@ def setup_logging(log_file: str = "findata.log", level=logging.INFO,
 
     logging.getLogger(__name__).info("Logging configured -> %s", path)
     return path
+
+from dataclasses import dataclass, fields, field
+from datetime import date, timedelta
+from typing import Set
+
+@dataclass
+class DataSplits:
+
+    train_start: date = date(year=2015, month=1, day=1)
+    train_end: date | None = None
+    validation_start: date = date(year=2024, month=1, day=1)
+    validation_end: date | None = None
+    test_start: date = date(year=2025, month=1, day=1)
+    test_end: date = date(year=2025, month=8, day=31)
+    all_tickers: Set[str] = field(default_factory=set)
+    val_holdout_tickers: Set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        self.data_start = self.train_start - timedelta(days=300)
+        self.train_end = self.validation_start - timedelta(days=1) if self.train_end is None else self.train_end
+        self.validation_end = self.test_start - timedelta(days=1) if self.validation_end is None else self.validation_end
+        self.data_end = max(self.train_end, self.train_start, self.test_end, self.test_start)
 

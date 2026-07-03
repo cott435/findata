@@ -23,7 +23,7 @@ from tqdm.auto import tqdm
 
 from findata.configs import DATA_DIR, DB_NAME
 
-import findata.technical_calculators as calc
+import findata.database.technical_calculators as calc
 from .tables import (Base, BalanceData, CashflowData, EmaData, FilingsData,
                      Form4Data, IncomeData, IndicatorData, PriceData, TickerMeta)
 
@@ -105,7 +105,7 @@ class DBManager:
         path = Path(name)
         if path.suffix != '.db':
             path = path.with_name(path.name + '.db')
-        if path.parent == Path('.'):
+        if path.parent == Path('..'):
             path = DEFAULT_DB_PATH.parent / path.name
         return path
 
@@ -442,6 +442,10 @@ class DBManager:
     # ------------------------------------------------------------------ #
     # query API
     # ------------------------------------------------------------------ #
+
+    def get_all_tickers(self):
+        stmt = select(TickerMeta.ticker)
+        return self.engine.connect().execute(stmt).scalars().all()
 
     def get_ticker_meta(self, tickers: list = None) -> pd.DataFrame:
         stmt = select(TickerMeta)

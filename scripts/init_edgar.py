@@ -15,9 +15,9 @@ import argparse
 import logging
 
 from findata.configs import setup_logging
-from findata.db_manager import DBManager
-from findata.edgar_ import EdgarPipeline
-from findata.ticker_sampling import TickerSampler
+from findata.database.db_manager import DBManager
+from findata.database.edgar_ import EdgarPipeline
+from findata.database.ticker_sampling import TickerSampler
 from scripts.init_yf import DEFAULT_TICKERS
 
 logger = logging.getLogger('scripts.init_edgar')
@@ -58,7 +58,7 @@ def main(use_all=False):
                              max_concurrency=args.concurrency, requests_per_second=args.rps,
                              decumulate_cashflow=args.decumulate_cashflow)
 
-    from findata.edgar_ import Company, parse_financials
+    from findata.database.edgar_ import Company, parse_financials
     facts = pipeline._fetch_facts_frame(Company('AAPL'))
     data = parse_financials(facts, 'AAPL')
 
