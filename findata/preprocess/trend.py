@@ -27,13 +27,13 @@ def fe_unbounded_momentum(df, ema_windows=None, feature_set='med', base_name='em
 
 class Trend(PCAProcessor):
 
-    def __init__(self, data, dates, n_components=0.95, scaler='robust', arcsinh=True, verbose=False,
-                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95):
+    def __init__(self, data, dates=None, n_components=0.95, scaler='robust', arcsinh=True, verbose=False,
+                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95, state=None):
         pca_groups = {g: [g] for g in ['rel', 'vel', 'acc', 'di']}
         super(Trend, self).__init__(data, dates, n_components=n_components, scaler=scaler, arcsinh=arcsinh,
                                     verbose=verbose, feature_set=feature_set, pca_groups=pca_groups,
                                     whiten_final=whiten_final, final_pca=final_pca,
-                                    final_n_components=final_n_components)
+                                    final_n_components=final_n_components, state=state)
 
     def _feature_engineer(self):
         processed_data = (

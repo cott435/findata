@@ -26,15 +26,15 @@ class Momentum(PCAProcessor):
         2. Grouped PCA (Raw and EMA), Vel, Acc
     """
 
-    def __init__(self, data, dates, n_components=0.95, scaler='standard', arcsinh=False, verbose=False,
-                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95):
+    def __init__(self, data, dates=None, n_components=0.95, scaler='standard', arcsinh=False, verbose=False,
+                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95, state=None):
         self.levels = {'rsi': (30, 70), 'cci': (-100, 100), 'willr': (20, 80), 'stoch_k': (20, 80),
                        'bb_percent': (0.05, 0.95)}
         pca_groups = {'main': ['raw', 'ema'], 'vel': ['vel'], 'acc': ['acc']}
         super(Momentum, self).__init__(data, dates, n_components=n_components, scaler=scaler, arcsinh=arcsinh,
                                     verbose=verbose, feature_set=feature_set, pca_groups=pca_groups,
                                     whiten_final=whiten_final, final_pca=final_pca,
-                                    final_n_components=final_n_components)
+                                    final_n_components=final_n_components, state=state)
 
     def _feature_engineer(self):
         bb_range = get_column(self.raw_data, 'bb_upper') - get_column(self.raw_data, 'bb_lower')

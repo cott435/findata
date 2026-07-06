@@ -16,12 +16,12 @@ class Candle(PCAProcessor):
         1. No PCA needed, features not correlated
     """
 
-    def __init__(self, data, dates, n_components=None, scaler='robust', arcsinh=True, verbose=False,
-                 feature_set='med', whiten_final=True):
+    def __init__(self, data, dates=None, n_components=None, scaler='robust', arcsinh=True, verbose=False,
+                 feature_set='med', whiten_final=True, state=None):
         pca_groups = {}
         super(Candle, self).__init__(data, dates, n_components=n_components, scaler=scaler, arcsinh=arcsinh,
                                      verbose=verbose, feature_set=feature_set, pca_groups=pca_groups,
-                                     whiten_final=whiten_final, final_pca=False)
+                                     whiten_final=whiten_final, final_pca=False, state=state)
 
     def _feature_engineer(self):
         df = self.raw_data.copy()
@@ -58,12 +58,9 @@ class Candle(PCAProcessor):
 
     def _scale(self):
         """will not scaled bounded components (candle_size based ones)"""
-        train_data = self._get_training_data(self.feat_eng_data)
-        scaling_columns = [c for c in train_data.columns if 'log' in c]
-        self.scaler.fit(train_data[scaling_columns])
-        scaled = self.scaler.transform(self.feat_eng_data[scaling_columns])
-        self.scaled_data[scaling_columns] = np.arcsinh(scaled).clip(-3.5, 3.5) if self.arcsinh else scaled
-        non_scaling_columns = [c for c in train_data.columns if 'log' not in c]
+        scaling_columns = [c for c in self.feat_eng_data.columns if 'log' in c]
+        self._fit_apply_scaler(scaling_columns)
+        non_scaling_columns = [c for c in self.feat_eng_data.columns if 'log' not in c]
         self.scaled_data[non_scaling_columns] = self.feat_eng_data[non_scaling_columns] * 2 -1
 
 

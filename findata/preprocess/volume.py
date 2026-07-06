@@ -27,15 +27,15 @@ class Volume(PCAProcessor):
         2. Grouped PCA (Raw and EMA), Vel, Acc
     """
 
-    def __init__(self, data, dates, n_components=0.95, scaler='robust', arcsinh=False, verbose=False,
-                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95):
+    def __init__(self, data, dates=None, n_components=0.95, scaler='robust', arcsinh=False, verbose=False,
+                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95, state=None):
         self.ema_windows = [12, 26, 52]
         vel_pca = {f'z_vel{i+1}': [f'zvel{self.ema_windows[i]}_{self.ema_windows[i+1]}'] for i in range(len(self.ema_windows) - 1)}
         pca_groups = {'mom_main': ['_raw', '_ema'], 'mom_vel': ['_vel'], **vel_pca}
         super(Volume, self).__init__(data, dates, n_components=n_components, scaler=scaler, arcsinh=arcsinh,
                                      verbose=verbose, feature_set=feature_set, pca_groups=pca_groups,
                                      whiten_final=whiten_final, final_pca=final_pca,
-                                     final_n_components=final_n_components)
+                                     final_n_components=final_n_components, state=state)
 
 
     def _feature_engineer(self):
@@ -53,12 +53,9 @@ class Volume(PCAProcessor):
         self.feat_eng_data = pd.concat([self.feat_eng_data, processed_data], axis=1, join='inner')
 
     def _scale(self):
-        train_data = self._get_training_data(self.feat_eng_data)
-        scaling_columns = [c for c in train_data.columns if 'zvel' not in c]
-        self.scaler.fit(train_data[scaling_columns])
-        scaled = self.scaler.transform(self.feat_eng_data[scaling_columns])
-        self.scaled_data[scaling_columns] = np.arcsinh(scaled).clip(-3.5, 3.5) if self.arcsinh else scaled
-        pass_columns = [c for c in train_data.columns if c not in scaling_columns]
+        scaling_columns = [c for c in self.feat_eng_data.columns if 'zvel' not in c]
+        self._fit_apply_scaler(scaling_columns)
+        pass_columns = [c for c in self.feat_eng_data.columns if c not in scaling_columns]
         self.scaled_data[pass_columns] = self.feat_eng_data[pass_columns]
 
 

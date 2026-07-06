@@ -38,13 +38,13 @@ class Volatility(PCAProcessor):
         1. One PCA group, all features are highly correlated
     """
 
-    def __init__(self, data, dates, n_components=None, scaler='power', arcsinh=False, verbose=False,
-                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95):
+    def __init__(self, data, dates=None, n_components=None, scaler='power', arcsinh=False, verbose=False,
+                 feature_set='med', whiten_final=True, final_pca=True, final_n_components=0.95, state=None):
         pca_groups = {}
         super(Volatility, self).__init__(data, dates, n_components=n_components, scaler=scaler, arcsinh=arcsinh,
                                     verbose=verbose, feature_set=feature_set, pca_groups=pca_groups,
                                     whiten_final=whiten_final, final_pca=final_pca,
-                                    final_n_components=final_n_components)
+                                    final_n_components=final_n_components, state=state)
 
     def _feature_engineer(self):
         processed_data = (

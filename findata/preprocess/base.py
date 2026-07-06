@@ -50,32 +50,92 @@ def get_scaler(scaler):
         raise ValueError('Unknown scaler')
 
 class PCAProcessor:
+    """Feature-engineering + scaling + PCA pipeline for one feature family.
 
-    def __init__(self, data, data_splits, n_components=None, scaler='standard', pca_groups=None,
+    Two modes:
+    - fit (``state=None``): scaler and PCAs are fit on the training split of
+      `data_splits`, then applied to all rows.
+    - apply (``state`` from a previous fit's :meth:`get_state`): the fitted
+      transformers are reused to transform new raw data — nothing is refit, and
+      `data_splits` is not required. Config args (scaler, feature_set, ...) are
+      ignored in favor of the values captured in the state.
+    """
+
+    def __init__(self, data, data_splits=None, n_components=None, scaler='standard', pca_groups=None,
                  arcsinh=False, verbose=False, feature_set='med', whiten_final=True,
-                 final_pca=False, final_n_components=None):
+                 final_pca=False, final_n_components=None, state=None):
         self.raw_data = data
         self.data_splits = data_splits
-        self.scaler = get_scaler(scaler)
-        self.arcsinh = arcsinh
-        self.feature_set = feature_set
-        self.whiten_final = whiten_final
-        self.final_pca = final_pca
-        self.final_n_components = final_n_components if final_n_components is not None else n_components
-        self.pcas = {}
+        self.state = state
+        self._fit = state is None
+        if self._fit:
+            if data_splits is None:
+                raise ValueError("data_splits is required when fitting (pass state= to apply a saved fit)")
+            self.scaler = get_scaler(scaler)
+            self.pcas = {}
+            self.arcsinh = arcsinh
+            self.feature_set = feature_set
+            self.whiten_final = whiten_final
+            self.final_pca = final_pca
+            self.final_n_components = final_n_components if final_n_components is not None else n_components
+            self.n_components = n_components
+            self.feat_eng_data = pd.DataFrame(index=data.index[data.index.get_level_values('date') >= data_splits.train_start])
+        else:
+            self.scaler = state['scaler']
+            self.pcas = state['pcas']
+            self.arcsinh = state['arcsinh']
+            self.feature_set = state['feature_set']
+            self.whiten_final = state['whiten_final']
+            self.final_pca = state['final_pca']
+            self.final_n_components = state['final_n_components']
+            self.n_components = state['n_components']
+            self.feat_eng_data = pd.DataFrame(index=data.index)
         self.pca_groups = pca_groups if pca_groups else {}
-        self.feat_eng_data = pd.DataFrame(index=data.index[data.index.get_level_values('date') >= data_splits.train_start])
         self.eps = 1e-7
         self.verbose = verbose
-        self.n_components = n_components
         self.ticker = self.raw_data.index.get_level_values(0).unique().to_series().sample(1).iloc[0]
         self._process()
 
     def _process(self):
         self._feature_engineer()
         self._resolve_feat_eng_data()
+        if not self._fit:
+            self._align_to_state()
         self._scale()
         self._transform()
+
+    def _align_to_state(self):
+        """Apply mode: enforce the exact feature-engineering column set/order the
+        scaler and PCAs were fit on (sklearn transformers are positional)."""
+        expected = self.state['feat_eng_cols']
+        missing = [c for c in expected if c not in self.feat_eng_data.columns]
+        extra = [c for c in self.feat_eng_data.columns if c not in expected]
+        if missing or extra:
+            raise ValueError(
+                f"{type(self).__name__}: engineered columns don't match the fitted state "
+                f"(missing={missing}, extra={extra}). Was the state saved with the same feature_set/raw columns?"
+            )
+        self.feat_eng_data = self.feat_eng_data[expected]
+
+    def get_state(self) -> dict:
+        """Everything needed to re-apply this processor's fitted transforms to new data."""
+        if not self._fit:
+            return self.state
+        return {
+            'class': type(self).__name__,
+            'feature_set': self.feature_set,
+            'scaler': self.scaler,
+            'pcas': self.pcas,
+            'arcsinh': self.arcsinh,
+            'n_components': self.n_components,
+            'final_pca': self.final_pca,
+            'whiten_final': self.whiten_final,
+            'final_n_components': self.final_n_components,
+            'feat_eng_cols': list(self.feat_eng_data.columns),
+            'pca_group_cols': dict(self.resolved_pca_groups_),
+            'transformed_cols': list(self.transformed_data.columns),
+            'final_cols': list(self.final_data.columns),
+        }
 
     def _get_training_data(self, data):
         d = data.index.get_level_values('date')
@@ -94,20 +154,21 @@ class PCAProcessor:
         Ticker eligibility (sufficient training-window coverage) is a global decision
         resolved once in `build_features`; here we only clean this processor's own NaNs.
         """
-        # Tickers whose raw data doesn't reach back to the full pre-training window
-        raw_min_dates = self.raw_data.groupby(level='ticker').apply(
-            lambda x: x.index.get_level_values('date').min()
-        )
-        suspect_tickers = set(
-            raw_min_dates[raw_min_dates > self.data_splits.data_start].index
-        )
+        if self.data_splits is not None:
+            # Tickers whose raw data doesn't reach back to the full pre-training window
+            raw_min_dates = self.raw_data.groupby(level='ticker').apply(
+                lambda x: x.index.get_level_values('date').min()
+            )
+            suspect_tickers = set(
+                raw_min_dates[raw_min_dates > self.data_splits.data_start].index
+            )
 
-        # Drop NaN rows; warn only for tickers not expected to have NaN heads
-        nan_mask = self.feat_eng_data.isna().any(axis=1)
-        nan_tickers = set(self.feat_eng_data[nan_mask].index.get_level_values('ticker').unique())
-        unexpected_nan = nan_tickers - suspect_tickers
-        if unexpected_nan:
-            print(f"  Dropping NaN rows from unexpected tickers: {sorted(unexpected_nan)}")
+            # Drop NaN rows; warn only for tickers not expected to have NaN heads
+            nan_mask = self.feat_eng_data.isna().any(axis=1)
+            nan_tickers = set(self.feat_eng_data[nan_mask].index.get_level_values('ticker').unique())
+            unexpected_nan = nan_tickers - suspect_tickers
+            if unexpected_nan:
+                print(f"  Dropping NaN rows from unexpected tickers: {sorted(unexpected_nan)}")
         self.feat_eng_data = self.feat_eng_data.dropna()
         self.scaled_data, self.transformed_data, self.final_data = (pd.DataFrame(index=self.feat_eng_data.index).copy() for _ in range(3))
 
@@ -122,28 +183,43 @@ class PCAProcessor:
         return self.final_data
 
     def _scale(self):
-        train_data = self._get_training_data(self.feat_eng_data)
-        scaling_columns = [c for c in train_data.columns]
-        self.scaler.fit(train_data[scaling_columns])
+        self._fit_apply_scaler(list(self.feat_eng_data.columns))
+
+    def _fit_apply_scaler(self, scaling_columns):
+        """Fit the scaler on the train split (fit mode) or reuse the loaded scaler
+        (apply mode), then transform all rows. Shared by the base `_scale` and the
+        subclass overrides that scale only a subset of columns."""
+        if self._fit:
+            train_data = self._get_training_data(self.feat_eng_data)
+            self.scaler.fit(train_data[scaling_columns])
         scaled = self.scaler.transform(self.feat_eng_data[scaling_columns])
         self.scaled_data[scaling_columns] = np.arcsinh(scaled).clip(-3.5, 3.5) if self.arcsinh else scaled
 
 
     def _transform(self):
-        train_data = self._get_training_data(self.scaled_data)
+        if self._fit:
+            train_data = self._get_training_data(self.scaled_data)
+            # Resolved {group: columns} is captured here (not re-derived at apply time)
+            # so apply mode feeds each PCA exactly the columns it was fit on.
+            self.resolved_pca_groups_ = {}
+            for name, col_keys in self.pca_groups.items():
+                cols = key_search(self.scaled_data.columns, col_keys)
+                if not cols:
+                    continue
+                self.resolved_pca_groups_[name] = cols
+                pca = PCA(n_components=self.n_components)
+                self.pcas[name] = pca
+                pca.fit(train_data[cols])
+        else:
+            self.resolved_pca_groups_ = self.state['pca_group_cols']
         used_cols = []
-        for name, col_keys in self.pca_groups.items():
-            cols = key_search(self.scaled_data.columns, col_keys)
-            if not cols:
-                continue
+        for name, cols in self.resolved_pca_groups_.items():
             used_cols.extend(cols)
-            pca = PCA(n_components=self.n_components)
-            self.pcas[name] = pca
-            pca.fit(train_data[cols])
-            pca_transformed = pca.transform(self.scaled_data[cols])
+            pca_transformed = self.pcas[name].transform(self.scaled_data[cols])
             new_columns = [f'{name}_pc{i + 1}' for i in range(pca_transformed.shape[1])]
             self.transformed_data[new_columns] = pca_transformed
-            if self.verbose:
+            if self.verbose and self._fit:
+                pca = self.pcas[name]
                 cum_var = np.cumsum(pca.explained_variance_ratio_).round(2)
                 cum_var = cum_var[:np.sum(cum_var < 0.995) + 1]
                 print(f'{name} PCA variance for {len(cum_var)} (of {len(cols)}) components: {cum_var}')
@@ -154,16 +230,34 @@ class PCAProcessor:
             self._apply_final_pca()
         else:
             self.final_data = self.transformed_data
+        if not self._fit:
+            expected = self.state['final_cols']
+            missing = [c for c in expected if c not in self.final_data.columns]
+            if missing:
+                raise ValueError(
+                    f"{type(self).__name__}: applied output is missing fitted columns {missing}"
+                )
+            self.final_data = self.final_data[expected]
 
     def _apply_final_pca(self):
-        train_pcs = self._get_training_data(self.transformed_data)
-        pca_final = PCA(n_components=self.final_n_components, whiten=self.whiten_final)
-        self.pcas['_final'] = pca_final
-        pca_final.fit(train_pcs)
-        final_transformed = pca_final.transform(self.transformed_data)
+        if self._fit:
+            train_pcs = self._get_training_data(self.transformed_data)
+            pca_final = PCA(n_components=self.final_n_components, whiten=self.whiten_final)
+            self.pcas['_final'] = pca_final
+            pca_final.fit(train_pcs)
+            input_cols = list(self.transformed_data.columns)
+        else:
+            pca_final = self.pcas['_final']
+            input_cols = self.state['transformed_cols']
+            missing = [c for c in input_cols if c not in self.transformed_data.columns]
+            if missing:
+                raise ValueError(
+                    f"{type(self).__name__}: final-PCA input is missing fitted columns {missing}"
+                )
+        final_transformed = pca_final.transform(self.transformed_data[input_cols])
         final_cols = [f'final_pc{i + 1}' for i in range(final_transformed.shape[1])]
         self.final_data[final_cols] = final_transformed
-        if self.verbose:
+        if self.verbose and self._fit:
             cum_var = np.cumsum(pca_final.explained_variance_ratio_).round(2)
             cum_var = cum_var[:np.sum(cum_var < 0.995) + 1]
             print(f'{self.__class__.__name__} Final PCA: {len(final_cols)} components from {len(self.transformed_data.columns)}: {cum_var}')
