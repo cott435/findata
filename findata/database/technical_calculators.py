@@ -112,8 +112,9 @@ def ema(series: pd.Series, period: int, seed: pd.Series = None) -> pd.Series:
     return _seeded_ewm(series, span=period, seed=seed)
 
 
-def rsi(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    delta = df['close'].diff()
+def rsi(data: pd.DataFrame|pd.Series, period: int = 14) -> pd.Series:
+    data = data['close'] if isinstance(data, pd.DataFrame) else data
+    delta = data.diff()
     avg_gain = delta.clip(lower=0).rolling(period).mean()
     avg_loss = (-delta.clip(upper=0)).rolling(period).mean()
     rs = avg_gain / avg_loss

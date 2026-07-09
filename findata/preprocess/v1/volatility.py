@@ -3,7 +3,7 @@ from findata.preprocess.base import *
 def fe_volatility(df, windows=None, feature_set='med'):
     assert feature_set in ['low', 'med', 'high']
     if windows is None:
-        windows = [7, 20] if feature_set == 'low' else [7, 20, 100]
+        windows = [20, 100] if feature_set == 'low' else [7, 20, 100]
     out = pd.DataFrame(index=df.index)
     returns = df["close"].pct_change()
     for window in windows:
@@ -47,9 +47,12 @@ class Volatility(PCAProcessor):
                                     final_n_components=final_n_components, state=state)
 
     def _feature_engineer(self):
+
+        def vol(df):
+            return fe_volatility(df, feature_set=self.feature_set)
         processed_data = (
             self.raw_data.groupby('ticker', group_keys=False)
-            .apply(fe_volatility)
+            .apply(vol)
         )
         self.feat_eng_data['bb_bandwidth'] = (get_column(self.raw_data, 'bb_upper') - get_column(self.raw_data, 'bb_lower')) / get_column(self.raw_data, 'bb_middle')
         self.feat_eng_data['atr_norm'] = get_column(self.raw_data, 'atr') / self.raw_data['close']

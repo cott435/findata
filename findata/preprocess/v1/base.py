@@ -413,7 +413,7 @@ def fe_oscillator_momentum(df, cols, ema_windows=None, feature_set='med'):
     """
     assert feature_set in ['low', 'med', 'high']
     if ema_windows is None:
-        ema_windows = [6, 12] if feature_set == 'low' else [4, 8, 16]
+        ema_windows = [6, 16] if feature_set == 'low' else [4, 8, 16]
     out = pd.DataFrame(index=df.index)
     for ind in cols:
         out[f'{ind}_raw'] = df[ind]

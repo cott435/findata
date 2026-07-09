@@ -6,6 +6,7 @@ from findata.database.technical_calculators import INDICATOR_WINDOWS, INDICATOR_
 DB_NAME = "stock.db"
 EDGAR_IDENTITY = "Connor ctt7729@gmail.com"
 DATA_DIR = Path(__file__).parents[1] / "data"
+EXPERIMENT_DIR = Path(__file__).parents[1] / "experiments"
 SEC_DIR = DATA_DIR / "sec_filings"
 LOG_DIR = Path(__file__).parents[1] / "logs"
 

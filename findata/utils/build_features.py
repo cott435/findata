@@ -111,6 +111,7 @@ def build_features(
     processors: Sequence[type[PCAProcessor]] = DEFAULT_PROCESSORS,
     feature_set: str = "med",
     verbose: bool = False,
+    feat_eng=False
 ) -> FeatureBundle:
     """Run each processor with its main-block defaults, then horizontally concatenate
     their `.dataset` outputs. Column names are prefixed with the processor name so the
@@ -131,7 +132,7 @@ def build_features(
     processor_states: dict[str, dict] = {}
     for cls in processors:
         proc = cls(data, data_splits, feature_set=feature_set, verbose=verbose)
-        ds = proc.dataset
+        ds = proc.feat_eng_data if feat_eng else proc.dataset
         prefixed = _prefix_columns(ds, cls.__name__.lower())
         for col in prefixed.columns:
             provenance[col] = cls.__name__

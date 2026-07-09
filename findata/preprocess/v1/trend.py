@@ -7,7 +7,7 @@ def fe_unbounded_momentum(df, ema_windows=None, feature_set='med', base_name='em
     """
     assert feature_set in ['low', 'med', 'high']
     if ema_windows is None:
-        ema_windows = [6, 12, 26, 52] if feature_set == 'low' else [6, 12, 26, 52, 104]
+        ema_windows = [12, 26, 52] if feature_set == 'low' else [6, 12, 26, 52, 104]
         if feature_set == 'high':
             ema_windows.append(208)
     out = pd.DataFrame(index=df.index)
