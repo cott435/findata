@@ -1,4 +1,4 @@
-from findata.preprocess.base import *
+from findata.preprocess.v1.base import *
 
 class Candle(PCAProcessor):
     """

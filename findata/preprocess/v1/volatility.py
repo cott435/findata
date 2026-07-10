@@ -1,4 +1,4 @@
-from findata.preprocess.base import *
+from findata.preprocess.v1.base import *
 
 def fe_volatility(df, windows=None, feature_set='med'):
     assert feature_set in ['low', 'med', 'high']

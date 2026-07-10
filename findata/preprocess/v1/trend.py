@@ -1,4 +1,4 @@
-from findata.preprocess.base import *
+from findata.preprocess.v1.base import *
 
 
 def fe_unbounded_momentum(df, ema_windows=None, feature_set='med', base_name='ema_close'):
