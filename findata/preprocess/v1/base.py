@@ -2,7 +2,7 @@ from typing import Iterable, List
 
 import numpy as np
 import pandas as pd
-from findata.utils.plotting import *
+from findata.utils.plottinglegacy import *
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer, PowerTransformer

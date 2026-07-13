@@ -1,0 +1,12 @@
+{
+  "raw+none": {
+    "steps": [
+      "scale_only"
+    ],
+    "causal": true,
+    "n_features": 62,
+    "n_signal": 7,
+    "lam_plus": 1.3582,
+    "top_eig_share": 0.3025
+  }
+}

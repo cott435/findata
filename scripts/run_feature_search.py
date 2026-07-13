@@ -44,7 +44,7 @@ def parse_args():
 def main():
     args = parse_args()
     splits = DataSplits()
-
+    args.tickers = 70
     tickers = get_all_tickers()
     if args.tickers:
         tickers = tickers[:args.tickers]

@@ -25,6 +25,7 @@ from sklearn.preprocessing import (MinMaxScaler, PowerTransformer, QuantileTrans
                                    RobustScaler, StandardScaler)
 
 from findata.configs import DATA_MAP, TECHNICAL_WINDOWS
+from findata.database.technical_calculators import INDICATOR_FUNCS
 
 # bare indicator name -> default-period column name, e.g. 'rsi' -> 'rsi_14'
 PERIOD_MAP = {name: TECHNICAL_WINDOWS[base] for base, names in DATA_MAP.items() for name in names}
@@ -124,6 +125,12 @@ class FeatureGroup:
         """Default: one rule covering every engineered column."""
         return [ScaleRule(columns=list(columns), scaler=self.default_scaler,
                           arcsinh=self.default_arcsinh)]
+
+    def _resolve_feature(self, data: pd.DataFrame, name: str, period: int) -> pd.Series:
+        target = f"{name}_{period}"
+        if target in data.columns:
+            return data[target]
+        return INDICATOR_FUNCS[name](data, period=period)
 
     def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame,
                 ticker: str | None = None, tail: int = 500):

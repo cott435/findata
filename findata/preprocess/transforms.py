@@ -106,6 +106,7 @@ class GroupScaler(PanelTransform):
                 out[cols] = X[cols] * rule.mul + rule.add
         uncovered = [c for c in X.columns if c not in out.columns]
         if uncovered:
+            print("Uncovered columns passing through:", uncovered)
             out[uncovered] = X[uncovered]
         return out[list(X.columns)]
 
@@ -687,27 +688,21 @@ class ProcessingPipeline:
 
 
 if __name__ == "__main__":
-    # Synthetic invariants check (no DB needed): see scripts/run_feature_search.py
-    # for the real-data path.
-    rng = np.random.default_rng(7)
-    n_tickers, n_dates, n_feat = 8, 600, 12
-    dates = pd.bdate_range("2015-01-02", periods=n_dates)
-    idx = pd.MultiIndex.from_product([[f"T{i}" for i in range(n_tickers)], dates],
-                                     names=["ticker", "date"])
-    market = rng.normal(size=n_dates)
-    X = pd.DataFrame(
-        np.tile(market, n_tickers)[:, None] * rng.uniform(0.5, 1.5, n_feat)
-        + rng.normal(size=(n_tickers * n_dates, n_feat)),
-        index=idx, columns=[f"g__f{j}" for j in range(n_feat)],
-    )
+    from findata.preprocess import Momentum
+    from findata.configs import DataSplits
+    from findata import get_all_data, get_all_tickers
 
-    class _Splits:
-        train_start = pd.Timestamp("2015-01-01")
-        train_end = pd.Timestamp("2016-09-01")
-        val_holdout_tickers = set()
+    n_tickers = 5
 
-    splits = _Splits()
-    mask = train_row_mask(X.index, splits)
+    tickers = get_all_tickers()[:n_tickers]
+    dates = DataSplits()
+    data, ticker_info = get_all_data(tickers, dates.data_start, dates.data_end)
+    mom = Momentum(oscillators=('rsi', 'cci'))
+    X = mom.engineer(data)
+    n_dates, n_feat =len(X), len(X.columns)
+
+
+    mask = train_row_mask(X.index, dates)
 
     zca = ZCAWhitener().fit(X[mask])
     Z = zca.transform(X[mask])
@@ -723,6 +718,7 @@ if __name__ == "__main__":
     # SSA on a noisy sine: reconstruction should track the clean signal
     t = np.arange(n_dates)
     clean = np.sin(2 * np.pi * t / 60)
+    rng = np.random.default_rng(7)
     noisy = clean + rng.normal(0, 0.5, n_dates)
     ssa = SSADenoiser(window_length=40, n_components=2)
     one = pd.DataFrame({"g__sine": np.tile(noisy, 1)},
@@ -746,7 +742,7 @@ if __name__ == "__main__":
     cfg = ProcessingConfig("signal+demean+std",
                            steps=[("signal_keep", {}), ("demean", {}), ("standardize", {})])
     pipe = ProcessingPipeline([Standardizer()] + [STEP_REGISTRY[n](**p) for n, p in cfg.resolved_steps()])
-    chained = pipe.fit_transform(X, splits)
+    chained = pipe.fit_transform(X, dates)
     print(f"Chained pipeline: causal={pipe.causal}, out shape={chained.shape}, "
           f"max |daily mean| = {chained.groupby(level='date').mean().abs().max().max():.2e}")
     print("OK")

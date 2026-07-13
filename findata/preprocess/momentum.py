@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from findata.database.technical_calculators import INDICATOR_FUNCS, ema
+from findata.database.technical_calculators import ema
 from findata.preprocess.base import FeatureGroup, per_ticker
 
 # oscillators that take (ohlcv_df, period) and return a single Series
@@ -54,7 +54,7 @@ class Momentum(FeatureGroup):
         for osc in self.oscillators:
             per_window = {}
             for wname, w in self.windows:
-                raw = INDICATOR_FUNCS[osc](df, period=w)
+                raw = self._resolve_feature(df, osc, period=w)
                 ema_slow = ema(raw, slow)
                 velocity = ema(raw, fast) - ema_slow
                 per_window[wname] = {
@@ -75,10 +75,34 @@ class Momentum(FeatureGroup):
                             per_window[a][q] - per_window[b][q])
         return pd.DataFrame(out, index=df.index)
 
-    def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame,
+    def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame, indicator='rsi',
+                ticker: str | None = None):
+        from collections import OrderedDict
+
+        from findata.analysis import FeatureExplorer
+
+        df = pd.concat([raw, engineered], axis=1)
+        price_options = ['close'] + [c for c in raw.columns if 'ema_close' in c]
+
+        data_dict = OrderedDict()
+        data_dict['Price'] = {'value': [c for c in ('close', 'ema_close_26', 'ema_close_52')
+                                        if c in price_options],
+                              'options': price_options}
+        data_dict[f'{indicator}'] = {'value': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and indicator in c and 'contrast' not in c],
+                              'options': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and 'contrast' not in c]}
+        data_dict[f'Contrast'] = {'value': [c for c in engineered.columns if 'contrast' in c and indicator in c],
+                                     'options': [c for c in engineered.columns if 'contrast' in c]}
+
+        explorer = FeatureExplorer(df, data_dict, minimap_feature='close', ticker=ticker)
+        explorer.serve()
+        return explorer
+
+
+    def plot_fe_legacy(self, engineered: pd.DataFrame, raw: pd.DataFrame,
                 ticker: str | None = None, tail: int = 200, save_path=None):
         """Construction plot in the style of momentum_analysis.py (one ticker)."""
         import matplotlib.pyplot as plt
+        from collections import OrderedDict
 
         ticker = ticker or engineered.index.get_level_values("ticker")[0]
         fe = engineered.loc[ticker].tail(tail)
@@ -114,21 +138,23 @@ class Momentum(FeatureGroup):
 
 
 if __name__ == "__main__":
-    from findata import get_price_data, get_all_tickers
+    from findata import get_all_data, get_all_tickers
     from findata.configs import EXPERIMENT_DIR
 
-    tickers = get_all_tickers()[:1]
-    data = get_price_data(tickers)
+    tickers = get_all_tickers()[:2]
+    data, _ = get_all_data(tickers)
 
-    mom = Momentum()
+    mom = Momentum(oscillators=["rsi", "cci"])
     features = mom.engineer(data)
-    print(f"Momentum v2 columns ({len(features.columns)}):")
-    for c in features.columns:
-        print(f"  {c}")
+    from findata.analysis import CorrelationStructureAnalysis
+    cc = CorrelationStructureAnalysis()
+    res = cc.run(features)
+
+
 
     out_dir = EXPERIMENT_DIR / "momentum_analysis" / "rsi"
     out_dir.mkdir(parents=True, exist_ok=True)
-    mom.plot_fe(features, data, save_path=out_dir / "v2_momentum_feature_construction.png")
+    mom.plot_fe(features, data)
 
-    both = Momentum(oscillators=["rsi", "cci"])
-    print(f"\nWith oscillators=['rsi','cci']: {len(both.engineer(data).columns)} columns")
+    #both = Momentum(oscillators=["rsi", "cci"])
+    #print(f"\nWith oscillators=['rsi','cci']: {len(both.engineer(data).columns)} columns")
