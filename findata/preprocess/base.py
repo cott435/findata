@@ -140,6 +140,11 @@ class FeatureGroup:
     def __repr__(self):
         return f"{type(self).__name__}(feature_set={self.feature_set!r})"
 
+    def _check_rank_deficiency(self, corr):
+        rank = np.linalg.matrix_rank(corr, tol=1e-8)
+        if rank < len(corr):
+            print(f"Rank deficiency detected in {type(self).__name__}: {rank} < {len(corr)}")
+
 
 def per_ticker(data: pd.DataFrame, func: Callable[[pd.DataFrame], pd.DataFrame]) -> pd.DataFrame:
     """Apply ``func`` per ticker; result keeps the (ticker, date) MultiIndex.

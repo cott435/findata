@@ -23,7 +23,7 @@ from findata.preprocess.base import FeatureGroup, per_ticker
 
 # oscillators that take (ohlcv_df, period) and return a single Series
 SERIES_OSCILLATORS = ('rsi', 'cci', 'willr', 'mfi', 'cmf')
-QUANTITIES = ("raw", "position", "velocity", "acceleration")
+QUANTITIES = ("raw", "position", "velocity", "acceleration", 'ema_fast', 'ema_slow')
 
 
 class Momentum(FeatureGroup):
@@ -56,9 +56,12 @@ class Momentum(FeatureGroup):
             for wname, w in self.windows:
                 raw = self._resolve_feature(df, osc, period=w)
                 ema_slow = ema(raw, slow)
-                velocity = ema(raw, fast) - ema_slow
+                ema_fast = ema(raw, fast)
+                velocity = ema_fast - ema_slow
                 per_window[wname] = {
                     "raw": raw,
+                    "ema_slow": ema_slow,
+                    "ema_fast": ema_fast,
                     "position": raw - ema_slow,
                     "velocity": velocity,
                     "acceleration": velocity - ema(velocity, self.signal_window),
@@ -88,7 +91,10 @@ class Momentum(FeatureGroup):
         data_dict['Price'] = {'value': [c for c in ('close', 'ema_close_26', 'ema_close_52')
                                         if c in price_options],
                               'options': price_options}
-        data_dict[f'{indicator}'] = {'value': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and indicator in c and 'contrast' not in c],
+        data_dict[f'{indicator}'] = {'value': [c for c in engineered.columns if any([n in c for n in ['raw', 'ema']]) and indicator in c and 'contrast' not in c],
+                                     'options': [c for c in engineered.columns if
+                                                 any([n in c for n in ['raw', 'ema']]) and 'contrast' not in c]}
+        data_dict[f'Change'] = {'value': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and indicator in c and 'contrast' not in c],
                               'options': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and 'contrast' not in c]}
         data_dict[f'Contrast'] = {'value': [c for c in engineered.columns if 'contrast' in c and indicator in c],
                                      'options': [c for c in engineered.columns if 'contrast' in c]}
@@ -146,15 +152,34 @@ if __name__ == "__main__":
 
     mom = Momentum(oscillators=["rsi", "cci"])
     features = mom.engineer(data)
+
+    from findata.preprocess.transforms import KalmanDenoiser
+    import matplotlib.pyplot as plt
+    kk = KalmanDenoiser()
+    kk.fit(features.dropna())
+
+    kkt = kk.transform(features.dropna())
+
+    features.dropna()['rsi_short_position'].tail(200).plot()
+    kkt['rsi_short_position'].tail(200).plot()
+
     from findata.analysis import CorrelationStructureAnalysis
     cc = CorrelationStructureAnalysis()
-    res = cc.run(features)
+    #res = cc.run(features)
 
-
-
-    out_dir = EXPERIMENT_DIR / "momentum_analysis" / "rsi"
-    out_dir.mkdir(parents=True, exist_ok=True)
     mom.plot_fe(features, data)
 
     #both = Momentum(oscillators=["rsi", "cci"])
     #print(f"\nWith oscillators=['rsi','cci']: {len(both.engineer(data).columns)} columns")
+
+    import numpy as np
+    ff = [c for c in features.columns if 'contrast' not in c]
+    vals = features.dropna()[ff].to_numpy(dtype=float)
+    corr = np.corrcoef(vals, rowvar=False)
+
+    eigvals = np.linalg.eigvalsh(corr)[::-1]
+
+
+
+
+

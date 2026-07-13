@@ -1,5 +1,5 @@
 import random
-from findata.configs import DATA_DIR
+from findata.configs import DATA_DIR, TICKERS
 import pandas as pd
 import re
 
@@ -37,13 +37,21 @@ class TickerSampler:
 
     def _load_subset(self):
         us_path = DATA_DIR / "all_info.xlsx"
-        df = pd.read_excel(us_path)
+        try:
+            df = pd.read_excel(us_path)
+        except FileNotFoundError as e:
+            print('No ticker data file found, returning default tickers')
+            return set(TICKERS)
         df = df[df['first_price_date'] < self.date_limit]
         return set(df["ticker"].dropna().astype(str))
 
     def _load_all(self) -> set[str]:
         us_path = DATA_DIR / "us_tickers.xlsx"
-        df = pd.read_excel(us_path)
+        try:
+            df = pd.read_excel(us_path)
+        except FileNotFoundError as e:
+            print('No ticker data file found, returning default tickers')
+            return set(TICKERS)
         df["market_cap_numeric"] = df["Market Cap"].apply(parse_market_cap)
         df_filtered = df[df["market_cap_numeric"] >= self.market_cap_floor].copy()
         return set(df_filtered["Ticker"].dropna().astype(str))

@@ -11,7 +11,8 @@ SEC_DIR = DATA_DIR / "sec_filings"
 LOG_DIR = Path(__file__).parents[1] / "logs"
 
 TICKERS = ['JNJ', 'JPM', 'MRK', 'HD', 'CVX', 'C', 'PNC', 'BAC', 'BK', 'WM', 'NFLX','AAPL', 'MSFT', 'AMZN', 'LLY',
-           'GOOG','META','SPG','AMT', 'F','XOM','COST','VZ','GE','NEM','CCI','NRG','MCD','KO','PG', 'TEM',' MRNA']
+           'GOOG','META','SPG','AMT', 'F','XOM','COST','VZ','GE','NEM','CCI','NRG','MCD','KO','PG', 'TEM',' MRNA',
+           'AA', 'ADT', 'WFC', 'WING', 'FLY', 'SDRL']
 
 LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 # third-party loggers that flood INFO; kept at WARNING so our logs stay readable

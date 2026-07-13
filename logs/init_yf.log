@@ -117,3 +117,47 @@
            names=['symbol', 'date'])
 2026-07-03 14:06:52,522 INFO    findata.database.db_manager | Cold-start: seeding 10 ticker(s)
 2026-07-03 14:07:01,571 INFO    findata.database.db_manager | Cold-start done, rows inserted: {'price': 45311, 'ema': 498421, 'indicator': 949358}
+2026-07-10 10:40:07,456 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/.misc/findata/logs/init_yf.log
+2026-07-10 10:40:25,147 INFO    findata.database.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-07-10 10:40:28,620 ERROR   findata.database.yf | YahooFinance: error fetching bulk data: 'AMZN'
+Traceback (most recent call last):
+  File "/Users/connorott/PycharmProjects/.misc/findata/findata/database/yf.py", line 140, in _request_ticker_financials
+    infos, day_hist, week_hist = await asyncio.gather(info_task, daily_task, weekly_task)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/connorott/PycharmProjects/.misc/findata/findata/database/yf.py", line 130, in get_data_p
+    return func(interval=freq, period='max', start=start)
+  File "/Users/connorott/PycharmProjects/.misc/findata/.venv/lib/python3.14/site-packages/yahooquery/ticker.py", line 1285, in history
+    df = self._historical_data_to_dataframe(data, params, adj_timezone)
+  File "/Users/connorott/PycharmProjects/.misc/findata/.venv/lib/python3.14/site-packages/yahooquery/ticker.py", line 1312, in _historical_data_to_dataframe
+    if "timestamp" in data[symbol]:
+                      ~~~~^^^^^^^^
+KeyError: 'AMZN'
+2026-07-10 10:40:28,623 ERROR   scripts.init_yf | Download failed, nothing inserted.
+2026-07-10 10:40:57,023 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/.misc/findata/logs/init_yf.log
+2026-07-10 10:40:57,610 INFO    findata.database.yf | Requesting Yahoo Finance data for 30 ticker(s) from 1/1/2005
+2026-07-10 10:41:01,533 INFO    findata.database.yf | Liquidity filter BK: dropping 5338 rows (before 2026-03-24), 0 zero-volume
+2026-07-10 10:41:01,575 INFO    findata.database.yf | Liquidity filter total: 5338 daily rows dropped (0 zero-volume)
+2026-07-10 10:41:01,594 INFO    findata.database.yf | Dropping 1 rows for 0 volume day: MultiIndex([('CCI', 2020-07-31)],
+           names=['symbol', 'date'])
+2026-07-10 10:41:01,735 INFO    findata.database.db_manager | Cold-start: seeding 29 ticker(s)
+2026-07-10 10:41:43,433 INFO    findata.database.db_manager | Cold-start done, rows inserted: {'price': 144851, 'ema': 1593361, 'indicator': 3035577}
+2026-07-10 11:31:03,905 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/.misc/findata/logs/init_yf.log
+2026-07-10 11:31:04,500 INFO    findata.database.yf | Requesting Yahoo Finance data for 9 ticker(s) from 1/1/2005
+2026-07-10 11:31:05,267 ERROR   findata.database.yf | YahooFinance: error fetching bulk data: 'ADT'
+Traceback (most recent call last):
+  File "/Users/connorott/PycharmProjects/.misc/findata/findata/database/yf.py", line 140, in _request_ticker_financials
+    infos, day_hist, week_hist = await asyncio.gather(info_task, daily_task, weekly_task)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/connorott/PycharmProjects/.misc/findata/findata/database/yf.py", line 130, in get_data_p
+    return func(interval=freq, period='max', start=start)
+  File "/Users/connorott/PycharmProjects/.misc/findata/.venv/lib/python3.14/site-packages/yahooquery/ticker.py", line 1285, in history
+    df = self._historical_data_to_dataframe(data, params, adj_timezone)
+  File "/Users/connorott/PycharmProjects/.misc/findata/.venv/lib/python3.14/site-packages/yahooquery/ticker.py", line 1312, in _historical_data_to_dataframe
+    if "timestamp" in data[symbol]:
+                      ~~~~^^^^^^^^
+KeyError: 'ADT'
+2026-07-10 11:31:05,271 ERROR   scripts.init_yf | Download failed, nothing inserted.
+2026-07-10 11:31:20,033 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/.misc/findata/logs/init_yf.log
+2026-07-10 11:31:20,695 INFO    findata.database.yf | Requesting Yahoo Finance data for 9 ticker(s) from 1/1/2005
+2026-07-10 11:31:21,808 INFO    findata.database.db_manager | Cold-start: seeding 8 ticker(s)
+2026-07-10 11:31:29,719 INFO    findata.database.db_manager | Cold-start done, rows inserted: {'price': 27726, 'ema': 304986, 'indicator': 580509}
