@@ -24,7 +24,7 @@ from findata.preprocess import rmt
 
 def parse_group(feature_name: str) -> str:
     """'momentum__rsi_short_raw' -> 'momentum'; no '__' -> 'component'."""
-    return feature_name.split("__", 1)[0] if "__" in feature_name else "component"
+    return feature_name.split("__", 1)[0] if "__" in feature_name else feature_name.split("_")[0]
 
 
 class CorrelationStructureAnalysis:

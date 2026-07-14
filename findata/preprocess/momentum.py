@@ -23,7 +23,7 @@ from findata.preprocess.base import FeatureGroup, per_ticker
 
 # oscillators that take (ohlcv_df, period) and return a single Series
 SERIES_OSCILLATORS = ('rsi', 'cci', 'willr', 'mfi', 'cmf')
-QUANTITIES = ("raw", "position", "velocity", "acceleration", 'ema_fast', 'ema_slow')
+QUANTITIES = ("raw", "velocity", "acceleration")#, 'ema_fast', 'ema_slow')
 
 
 class Momentum(FeatureGroup):
@@ -31,7 +31,7 @@ class Momentum(FeatureGroup):
     default_scaler = "standard"
 
     def __init__(self, oscillators=("rsi",), windows=(("short", 14), ("long", 28)),
-                 smoothing_pair=(5, 20), signal_window=9,
+                 smoothing_pair=(6, 20), signal_window=9,
                  feature_set: str = "med", verbose: bool = False):
         super().__init__(feature_set=feature_set, verbose=verbose)
         oscillators = [oscillators] if isinstance(oscillators, str) else list(oscillators)
@@ -62,20 +62,12 @@ class Momentum(FeatureGroup):
                     "raw": raw,
                     "ema_slow": ema_slow,
                     "ema_fast": ema_fast,
-                    "position": raw - ema_slow,
                     "velocity": velocity,
                     "acceleration": velocity - ema(velocity, self.signal_window),
                 }
                 for q in QUANTITIES:
                     out[f"{osc}_{wname}_{q}"] = per_window[wname][q]
-            # cross-window contrasts: every native-window pair, per quantity
-            wnames = [w[0] for w in self.windows]
-            for i in range(len(wnames)):
-                for j in range(i + 1, len(wnames)):
-                    a, b = wnames[i], wnames[j]
-                    for q in QUANTITIES:
-                        out[f"{osc}_contrast_{q}_{a}_minus_{b}"] = (
-                            per_window[a][q] - per_window[b][q])
+
         return pd.DataFrame(out, index=df.index)
 
     def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame, indicator='rsi',
@@ -94,10 +86,8 @@ class Momentum(FeatureGroup):
         data_dict[f'{indicator}'] = {'value': [c for c in engineered.columns if any([n in c for n in ['raw', 'ema']]) and indicator in c and 'contrast' not in c],
                                      'options': [c for c in engineered.columns if
                                                  any([n in c for n in ['raw', 'ema']]) and 'contrast' not in c]}
-        data_dict[f'Change'] = {'value': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and indicator in c and 'contrast' not in c],
+        data_dict[f'Derivatives'] = {'value': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and indicator in c and 'contrast' not in c],
                               'options': [c for c in engineered.columns if any([n in c for n in ['vel', 'pos', 'acc']]) and 'contrast' not in c]}
-        data_dict[f'Contrast'] = {'value': [c for c in engineered.columns if 'contrast' in c and indicator in c],
-                                     'options': [c for c in engineered.columns if 'contrast' in c]}
 
         explorer = FeatureExplorer(df, data_dict, minimap_feature='close', ticker=ticker)
         explorer.serve()
@@ -147,25 +137,15 @@ if __name__ == "__main__":
     from findata import get_all_data, get_all_tickers
     from findata.configs import EXPERIMENT_DIR
 
-    tickers = get_all_tickers()[:2]
+    tickers = get_all_tickers()
     data, _ = get_all_data(tickers)
 
     mom = Momentum(oscillators=["rsi", "cci"])
     features = mom.engineer(data)
 
-    from findata.preprocess.transforms import KalmanDenoiser
-    import matplotlib.pyplot as plt
-    kk = KalmanDenoiser()
-    kk.fit(features.dropna())
-
-    kkt = kk.transform(features.dropna())
-
-    features.dropna()['rsi_short_position'].tail(200).plot()
-    kkt['rsi_short_position'].tail(200).plot()
-
     from findata.analysis import CorrelationStructureAnalysis
     cc = CorrelationStructureAnalysis()
-    #res = cc.run(features)
+    res = cc.run(features)
 
     mom.plot_fe(features, data)
 
