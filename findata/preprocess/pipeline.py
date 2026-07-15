@@ -21,13 +21,13 @@ import pandas as pd
 
 from findata.preprocess.base import FeatureGroup, ScaleRule, date_values
 from findata.preprocess.candles import Candle
-from findata.preprocess.momentum import Momentum
+from findata.preprocess.oscillators import Oscillators
 from findata.preprocess.transforms import ProcessingConfig, ProcessingPipeline
 from findata.preprocess.trend import Trend
 from findata.preprocess.volatility import Volatility
 from findata.preprocess.volume import Volume
 
-DEFAULT_GROUPS = (Momentum, Trend, Volatility, Volume, Candle)
+DEFAULT_GROUPS = (Oscillators, Trend, Volatility, Volume, Candle)
 
 
 def eligible_tickers(data: pd.DataFrame, data_splits) -> set[str]:

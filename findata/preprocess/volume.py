@@ -29,15 +29,7 @@ class Volume(FeatureGroup):
         self.ema_windows = list(ema_windows)
 
     def engineer(self, data: pd.DataFrame) -> pd.DataFrame:
-        osc_cols = get_column_names(['mfi', 'cmf'])
-
-        def apply_fe(df):
-            return pd.concat([
-                calc_z_score_vel(df, self.ema_windows),
-                fe_oscillator_momentum(df, osc_cols, feature_set=self.feature_set),
-            ], axis=1)
-
-        return per_ticker(data, apply_fe)
+        return per_ticker(data, lambda df: calc_z_score_vel(df, self.ema_windows))
 
     def scale_rules(self, columns) -> list[ScaleRule]:
         """zvel columns are already rolling z-scores — pass through unscaled (v1 behavior)."""
@@ -48,3 +40,34 @@ class Volume(FeatureGroup):
         if pass_cols:
             rules.append(ScaleRule(columns=pass_cols, kind="passthrough"))
         return rules
+
+    def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame,ticker: str | None = None):
+        from collections import OrderedDict
+        from findata.analysis import FeatureExplorer
+
+        df = pd.concat([raw, engineered], axis=1)
+        price_options = ['close'] + [c for c in raw.columns if 'ema_close' in c]
+
+        data_dict = OrderedDict()
+        data_dict['Price'] = {'value': [c for c in ('close', 'ema_close_26', 'ema_close_52')
+                                        if c in price_options],
+                              'options': price_options}
+        data_dict[f'Short'] = {'value': [c for c in engineered.columns if f"{self.ema_windows[0]}_{self.ema_windows[1]}" in c],
+                              'options': list(engineered.columns)}
+        data_dict[f'Long'] = {'value': [c for c in engineered.columns if f"{self.ema_windows[1]}_{self.ema_windows[2]}" in c],
+                              'options': list(engineered.columns)}
+        explorer = FeatureExplorer(df, data_dict, minimap_feature='close', ticker=ticker)
+        explorer.serve()
+        return explorer
+
+if __name__ == "__main__":
+    from findata import get_all_data, get_all_tickers
+
+    tickers = get_all_tickers()[:20]
+    data, _ = get_all_data(tickers)
+
+    volume = Volume()
+    features = volume.engineer(data)
+
+    volume.plot_fe(features, data)
+

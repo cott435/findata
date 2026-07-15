@@ -1,4 +1,4 @@
-"""Momentum feature group (v2).
+"""Oscillators feature group (v2).
 
 Design from ``scripts/testing/momentum_analysis.py``: each oscillator is
 computed at its own NATIVE lookback windows (short/long) directly from price —
@@ -19,18 +19,18 @@ from __future__ import annotations
 import pandas as pd
 
 from findata.database.technical_calculators import ema
-from findata.preprocess.base import FeatureGroup, per_ticker
+from findata.preprocess.base import FeatureGroup, per_ticker, _resolve_feature, calc_velocity_acceleration
 
 # oscillators that take (ohlcv_df, period) and return a single Series
-SERIES_OSCILLATORS = ('rsi', 'cci', 'willr', 'mfi', 'cmf')
+SERIES_OSCILLATORS = ('rsi', 'cci', 'willr', 'mfi', 'cmf', 'stochastic')
 QUANTITIES = ("raw", "velocity", "acceleration")#, 'ema_fast', 'ema_slow')
 
 
-class Momentum(FeatureGroup):
+class Oscillators(FeatureGroup):
     name = "momentum"
     default_scaler = "standard"
 
-    def __init__(self, oscillators=("rsi",), windows=(("short", 14), ("long", 28)),
+    def __init__(self, oscillators=SERIES_OSCILLATORS, windows=(("short", 14), ("long", 28)),
                  smoothing_pair=(6, 20), signal_window=9,
                  feature_set: str = "med", verbose: bool = False):
         super().__init__(feature_set=feature_set, verbose=verbose)
@@ -46,6 +46,7 @@ class Momentum(FeatureGroup):
         self.signal_window = signal_window
 
     def engineer(self, data: pd.DataFrame) -> pd.DataFrame:
+        #self.raw_data['bb_percent'] = (self.raw_data['close'] - get_column(self.raw_data, 'bb_lower')) / bb_range
         return per_ticker(data, self._engineer_ticker)
 
     def _engineer_ticker(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -54,17 +55,8 @@ class Momentum(FeatureGroup):
         for osc in self.oscillators:
             per_window = {}
             for wname, w in self.windows:
-                raw = self._resolve_feature(df, osc, period=w)
-                ema_slow = ema(raw, slow)
-                ema_fast = ema(raw, fast)
-                velocity = ema_fast - ema_slow
-                per_window[wname] = {
-                    "raw": raw,
-                    "ema_slow": ema_slow,
-                    "ema_fast": ema_fast,
-                    "velocity": velocity,
-                    "acceleration": velocity - ema(velocity, self.signal_window),
-                }
+                raw = _resolve_feature(df, osc, period=w)
+                per_window[wname] = calc_velocity_acceleration(raw, fast, slow, signal_window=self.signal_window)
                 for q in QUANTITIES:
                     out[f"{osc}_{wname}_{q}"] = per_window[wname][q]
 
@@ -137,19 +129,23 @@ if __name__ == "__main__":
     from findata import get_all_data, get_all_tickers
     from findata.configs import EXPERIMENT_DIR
 
-    tickers = get_all_tickers()
+    tickers = get_all_tickers()[:20]
     data, _ = get_all_data(tickers)
 
-    mom = Momentum(oscillators=["rsi", "cci"])
+    mom = Oscillators()
     features = mom.engineer(data)
+
+    mom.plot_fe(features, data)
+
+    rsi = features['rsi_short_raw'].unstack("ticker").sort_index() .dropna(axis=1, how='any')
 
     from findata.analysis import CorrelationStructureAnalysis
     cc = CorrelationStructureAnalysis()
     res = cc.run(features)
 
-    mom.plot_fe(features, data)
 
-    #both = Momentum(oscillators=["rsi", "cci"])
+
+    #both = Oscillators(oscillators=["rsi", "cci"])
     #print(f"\nWith oscillators=['rsi','cci']: {len(both.engineer(data).columns)} columns")
 
     import numpy as np

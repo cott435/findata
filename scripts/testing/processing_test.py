@@ -145,7 +145,7 @@ def build_trend_features(close, scale_pairs=TREND_SCALE_PAIRS, signal_window=SIG
 def build_momentum_features(close, rsi_windows=MOMENTUM_RSI_WINDOWS, smoothing_pair=MOMENTUM_SMOOTHING_PAIR,
                              signal_window=SIGNAL_WINDOW, oscillator_name="rsi"):
     """
-    Momentum "scale" = RSI's OWN native lookback window (e.g. 14 vs. 28), computed
+    Oscillators "scale" = RSI's OWN native lookback window (e.g. 14 vs. 28), computed
     directly from price -- NOT a secondary EMA-smoothing window applied on top of a
     single fixed-window RSI. This is the direct analog of trend's ema_fast/ema_slow
     on price: vary the lookback on the ORIGINAL series, don't add a second layer of
@@ -382,7 +382,7 @@ def main():
     print("Trend feature columns:")
     for c in trend_features.columns:
         print(f"  {c}")
-    print("\nMomentum feature columns:")
+    print("\nOscillators feature columns:")
     for c in momentum_features.columns:
         print(f"  {c}")
 

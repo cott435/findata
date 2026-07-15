@@ -22,7 +22,7 @@ findata/database/yf.py
 findata/preprocess/__init__.py
 findata/preprocess/base.py
 findata/preprocess/candles.py
-findata/preprocess/momentum.py
+findata/preprocess/oscillators.py
 findata/preprocess/pipeline.py
 findata/preprocess/rmt.py
 findata/preprocess/transforms.py
@@ -32,7 +32,7 @@ findata/preprocess/volume.py
 findata/preprocess/v1/__init__.py
 findata/preprocess/v1/base.py
 findata/preprocess/v1/candles.py
-findata/preprocess/v1/momentum.py
+findata/preprocess/v1/oscillators.py
 findata/preprocess/v1/sr.py
 findata/preprocess/v1/trend.py
 findata/preprocess/v1/volatility.py

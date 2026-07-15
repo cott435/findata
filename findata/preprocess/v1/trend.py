@@ -44,7 +44,6 @@ class Trend(PCAProcessor):
         self.feat_eng_data['adx'] = get_column(self.raw_data, 'adx')
         self.feat_eng_data['plus_di'] = get_column(self.raw_data, 'plus_di')
         self.feat_eng_data['minus_di'] = get_column(self.raw_data, 'minus_di')
-        # self.feat_eng_data['di_diff'] = self.raw_data['plus_di'] - self.raw_data['minus_di']
 
     def plot_fe(self, ticker=None, tail=None):
         tail = tail or self.tail

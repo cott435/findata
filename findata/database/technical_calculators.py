@@ -132,11 +132,10 @@ def bollinger(df: pd.DataFrame, period: int = 20, num_std: float = 2.0) -> pd.Da
     })
 
 
-def stochastic(df: pd.DataFrame, period: int = 14, smooth: int = 3) -> pd.DataFrame:
+def stochastic(df: pd.DataFrame, period: int = 14) -> pd.Series:
     low_n = df['low'].rolling(period).min()
     high_n = df['high'].rolling(period).max()
-    k = 100 * (df['close'] - low_n) / (high_n - low_n)
-    return pd.DataFrame({'stoch_k': k, 'stoch_d': k.rolling(smooth).mean()})
+    return 100 * (df['close'] - low_n) / (high_n - low_n)
 
 
 def atr(df: pd.DataFrame, period: int = 14, seed: pd.Series = None) -> pd.Series:
@@ -235,7 +234,7 @@ INDICATOR_FUNCS = {
 INDICATOR_OUTPUTS = {
     'rsi': ['rsi'],
     'bollinger': ['bb_middle', 'bb_upper', 'bb_lower'],
-    'stochastic': ['stoch_k', 'stoch_d'],
+    'stochastic': ['stochastic'],
     'adx': ['plus_dm', 'minus_dm', 'atr', 'plus_di', 'minus_di', 'adx'],
     'cci': ['cci'],
     'willr': ['willr'],

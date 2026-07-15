@@ -24,7 +24,7 @@ def tail(data, n=500):
 def build_momentum_features(close, windows=MOMENTUM_WINDOWS, smoothing_pair=MOMENTUM_SMOOTHING_PAIR,
                             signal_window=SIGNAL_WINDOW, oscillator_name="rsi"):
     """
-    Momentum "scale" = RSI's OWN native lookback window (e.g. 14 vs. 28), computed
+    Oscillators "scale" = RSI's OWN native lookback window (e.g. 14 vs. 28), computed
     directly from price -- NOT a secondary EMA-smoothing window applied on top of a
     single fixed-window RSI. This is the direct analog of trend's ema_fast/ema_slow
     on price: vary the lookback on the ORIGINAL series, don't add a second layer of

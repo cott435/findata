@@ -688,7 +688,7 @@ class ProcessingPipeline:
 
 
 if __name__ == "__main__":
-    from findata.preprocess import Momentum
+    from findata.preprocess import Oscillators
     from findata.configs import DataSplits
     from findata import get_all_data, get_all_tickers
 
@@ -697,7 +697,7 @@ if __name__ == "__main__":
     tickers = get_all_tickers()[:n_tickers]
     dates = DataSplits()
     data, ticker_info = get_all_data(tickers, dates.data_start, dates.data_end)
-    mom = Momentum(oscillators=('rsi', 'cci'))
+    mom = Oscillators(oscillators=('rsi', 'cci'))
     X = mom.engineer(data)
     n_dates, n_feat =len(X), len(X.columns)
 

@@ -64,11 +64,11 @@ Features:
 
 ---
 
-### `momentum.py`
+### `oscillators.py`
 
 Overbought/oversold oscillator features.
 
-**`Momentum`** extends `PCAProcessor`
+**`Oscillators`** extends `PCAProcessor`
 
 **Source indicators** (from DB): RSI, CCI, Williams %R, Bollinger Band %, Stochastic K
 
@@ -142,7 +142,7 @@ Volume momentum and price-volume divergence features.
 
 **`Volume`** extends `PCAProcessor`
 
-**Momentum block** (CMF and MFI):
+**Oscillators block** (CMF and MFI):
 - Raw values, EMAs at `[4, 8, 16]`, velocity, and acceleration
 
 **Z-score velocity block** (EMA windows `[12, 26, 52]`):

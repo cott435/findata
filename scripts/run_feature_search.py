@@ -18,7 +18,7 @@ from findata import get_all_data, get_all_tickers
 from findata.analysis import CorrelationStructureAnalysis, ProcessingSearch
 from findata.analysis.search import DEFAULT_VARIANTS
 from findata.configs import EXPERIMENT_DIR, DataSplits
-from findata.preprocess import Candle, Momentum, Trend, Volatility, Volume
+from findata.preprocess import Candle, Oscillators, Trend, Volatility, Volume
 
 QUICK_VARIANTS = {"raw+none", "kalman+none", "raw+zca", "raw+hpca", "demean", "signal+demean"}
 
@@ -53,7 +53,7 @@ def main():
 
     groups = None
     if args.oscillators:
-        groups = [Momentum(oscillators=args.oscillators, feature_set=args.feature_set),
+        groups = [Oscillators(oscillators=args.oscillators, feature_set=args.feature_set),
                   Trend, Volatility, Volume, Candle]
 
     horizons = args.horizons or ([5, 21] if args.quick else [1, 5, 10, 21, 63])

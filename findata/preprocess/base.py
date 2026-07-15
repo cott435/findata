@@ -25,7 +25,7 @@ from sklearn.preprocessing import (MinMaxScaler, PowerTransformer, QuantileTrans
                                    RobustScaler, StandardScaler)
 
 from findata.configs import DATA_MAP, TECHNICAL_WINDOWS
-from findata.database.technical_calculators import INDICATOR_FUNCS
+from findata.database.technical_calculators import INDICATOR_FUNCS, ema
 
 # bare indicator name -> default-period column name, e.g. 'rsi' -> 'rsi_14'
 PERIOD_MAP = {name: TECHNICAL_WINDOWS[base] for base, names in DATA_MAP.items() for name in names}
@@ -126,14 +126,8 @@ class FeatureGroup:
         return [ScaleRule(columns=list(columns), scaler=self.default_scaler,
                           arcsinh=self.default_arcsinh)]
 
-    def _resolve_feature(self, data: pd.DataFrame, name: str, period: int) -> pd.Series:
-        target = f"{name}_{period}"
-        if target in data.columns:
-            return data[target]
-        return INDICATOR_FUNCS[name](data, period=period)
-
     def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame,
-                ticker: str | None = None, tail: int = 500):
+                ticker: str | None = None):
         """Optional visual check of the construction; subclasses may override."""
         raise NotImplementedError(f"{type(self).__name__} does not implement plot_fe")
 
@@ -164,6 +158,19 @@ def date_values(index: pd.MultiIndex) -> pd.DatetimeIndex:
     """
     return pd.DatetimeIndex(pd.to_datetime(index.get_level_values("date")))
 
+def _resolve_feature(data: pd.DataFrame, name: str, period: int) -> pd.Series:
+    if name.split('_')[0] == 'ema':
+        return _resolve_ema(data, name, period)
+    target = f"{name}_{period}"
+    if target in data.columns:
+        return data[target]
+    return INDICATOR_FUNCS[name](data, period=period)
+
+def _resolve_ema(data: pd.DataFrame, name: str, period: int) -> pd.Series:
+    target = f"{name}_{period}"
+    if target in data.columns:
+        return data[target]
+    return ema(data['close'], period=period)
 
 # ---------------------------------------------------------------------------
 # Column utilities (ported from v1)
@@ -265,3 +272,18 @@ def fe_oscillator_momentum(df, cols, ema_windows=None, feature_set='med'):
             if feature_set == 'high':
                 out[f'{ind}_acc{f}_{s}'] = md - md.ewm(span=sig_span(s), adjust=False).mean()
     return sort_columns(out, ['raw', 'ema', 'vel', 'acc'])
+
+
+
+def calc_velocity_acceleration(data: pd.Series, fast:int|pd.Series, slow:int|pd.Series, signal_window=9, log=False,):
+    ema_slow = slow if isinstance(slow, pd.Series) else ema(data, slow)
+    ema_fast = fast if isinstance(fast, pd.Series) else ema(data, fast)
+    velocity = np.log(ema_fast / ema_slow) if log else ema_fast - ema_slow
+    return {
+        "raw": data,
+        "ema_slow": ema_slow,
+        "ema_fast": ema_fast,
+        "velocity": velocity,
+        "acceleration": velocity - ema(velocity, signal_window),
+    }
+

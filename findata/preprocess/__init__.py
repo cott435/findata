@@ -2,7 +2,7 @@
 
 Layout:
   base.py        FeatureGroup / ScaleRule + shared feature-engineering helpers
-  momentum.py    native-window oscillator momentum (v2 design)
+  oscillators.py    native-window oscillator momentum (v2 design)
   trend.py, volatility.py, volume.py, candles.py   v1 feature engineering, ported
   rmt.py         Marchenko-Pastur denoising + correlation clustering
   transforms.py  PanelTransforms (scaling, Kalman/SSA, ZCA/PCA/HPCA,
@@ -16,7 +16,7 @@ from findata.preprocess.base import (FeatureGroup, LogStandardScaler, ScaleRule,
                                      get_column_names, get_columns, get_scaler,
                                      key_search, per_ticker, sig_span, sort_columns)
 from findata.preprocess.candles import Candle
-from findata.preprocess.momentum import Momentum
+from findata.preprocess.oscillators import Oscillators
 from findata.preprocess.trend import Trend
 from findata.preprocess.volatility import Volatility
 from findata.preprocess.volume import Volume
@@ -31,7 +31,7 @@ from findata.preprocess.pipeline import (DEFAULT_GROUPS, FeaturePipeline, Pipeli
 
 __all__ = [
     # groups
-    "FeatureGroup", "Momentum", "Trend", "Volatility", "Volume", "Candle",
+    "FeatureGroup", "Oscillators", "Trend", "Volatility", "Volume", "Candle",
     "DEFAULT_GROUPS",
     # pipeline
     "FeaturePipeline", "PipelineState", "eligible_tickers",

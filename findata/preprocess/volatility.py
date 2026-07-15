@@ -7,10 +7,7 @@ import pandas as pd
 from findata.preprocess.base import FeatureGroup, get_column, per_ticker
 
 
-def fe_volatility(df, windows=None, feature_set='med'):
-    assert feature_set in ['low', 'med', 'high']
-    if windows is None:
-        windows = [20, 100] if feature_set == 'low' else [7, 20, 100]
+def fe_volatility(df, windows, feature_set: str = 'med') -> pd.DataFrame:
     out = pd.DataFrame(index=df.index)
     returns = df["close"].pct_change()
     for window in windows:
@@ -40,7 +37,7 @@ class Volatility(FeatureGroup):
 
     def __init__(self, windows=None, feature_set: str = "med", verbose: bool = False):
         super().__init__(feature_set=feature_set, verbose=verbose)
-        self.windows = windows
+        self.windows = [20, 100] if feature_set == 'low' else [7, 20, 100]
 
     def engineer(self, data: pd.DataFrame) -> pd.DataFrame:
         out = per_ticker(data, lambda df: fe_volatility(
@@ -51,3 +48,34 @@ class Volatility(FeatureGroup):
         )
         out['atr_norm'] = get_column(data, 'atr') / data['close']
         return out
+
+    def plot_fe(self, engineered: pd.DataFrame, raw: pd.DataFrame,ticker: str | None = None):
+        from collections import OrderedDict
+        from findata.analysis import FeatureExplorer
+
+        df = pd.concat([raw, engineered], axis=1)
+        price_options = ['close'] + [c for c in raw.columns if 'ema_close' in c]
+
+        data_dict = OrderedDict()
+        data_dict['Price'] = {'value': [c for c in ('close', 'ema_close_26', 'ema_close_52')
+                                        if c in price_options],
+                              'options': price_options}
+        data_dict[f'Volatility'] = {'value': ['vol20', 'vol100'],
+                              'options': list(engineered.columns)}
+        data_dict[f'Volatility2'] = {'value': ['bb_bandwidth', 'atr_norm'],
+                              'options': list(engineered.columns)}
+        explorer = FeatureExplorer(df, data_dict, minimap_feature='close', ticker=ticker)
+        explorer.serve()
+        return explorer
+
+
+if __name__ == "__main__":
+    from findata import get_all_data, get_all_tickers
+
+    tickers = get_all_tickers()[:20]
+    data, _ = get_all_data(tickers)
+
+    vol = Volatility()
+    features = vol.engineer(data)
+
+    vol.plot_fe(features, data)
