@@ -19,13 +19,13 @@ from typing import Sequence
 import joblib
 import pandas as pd
 
-from findata.preprocess.base import FeatureGroup, ScaleRule, date_values
-from findata.preprocess.candles import Candle
-from findata.preprocess.oscillators import Oscillators
+from findata.preprocess.feature_building.base import FeatureGroup, ScaleRule, date_values
+from findata.preprocess.feature_building.candles import Candle
+from findata.preprocess.feature_building.oscillators import Oscillators
 from findata.preprocess.transforms import ProcessingConfig, ProcessingPipeline
-from findata.preprocess.trend import Trend
-from findata.preprocess.volatility import Volatility
-from findata.preprocess.volume import Volume
+from findata.preprocess.feature_building.trend import Trend
+from findata.preprocess.feature_building.volatility import Volatility
+from findata.preprocess.feature_building.volume import Volume
 
 DEFAULT_GROUPS = (Oscillators, Trend, Volatility, Volume, Candle)
 
@@ -132,7 +132,9 @@ class FeaturePipeline:
 
     # -- fit / transform -----------------------------------------------------
 
-    def fit(self, data: pd.DataFrame, splits) -> "FeaturePipeline":
+    def fit(self, data: pd.DataFrame, splits, meta=None) -> "FeaturePipeline":
+        """``meta``: ticker metadata (ticker_info frame or ticker -> sector map),
+        required by sector-aware steps ('modes')."""
         keep = eligible_tickers(data, splits)
         data = data[data.index.get_level_values('ticker').isin(keep)]
 
@@ -147,7 +149,7 @@ class FeaturePipeline:
             self.processing_ = self.processing
         else:
             config = self.processing if self.processing is not None else ProcessingConfig("scaled")
-            self.processing_ = config.build(self.scale_rules())
+            self.processing_ = config.build(self.scale_rules(), meta=meta)
         self.features_ = self.processing_.fit_transform(eng, splits)
 
         self.provenance = {
@@ -166,8 +168,8 @@ class FeaturePipeline:
         eng = _align_columns(eng, self.engineered_cols_, type(self).__name__)
         return self.processing_.transform(eng)
 
-    def fit_transform(self, data: pd.DataFrame, splits) -> pd.DataFrame:
-        return self.fit(data, splits).features_
+    def fit_transform(self, data: pd.DataFrame, splits, meta=None) -> pd.DataFrame:
+        return self.fit(data, splits, meta=meta).features_
 
     def get_state(self) -> "PipelineState":
         return PipelineState(
@@ -197,6 +199,19 @@ class PipelineState:
     causal: bool
     version: int = 2
 
+    def __setstate__(self, state: dict) -> None:
+        # States pickled before a field existed unpickle without it — back-fill
+        # so old run artifacts stay loadable (causal derives from the chain).
+        # v1 FeatureState pickles (processor_states schema) load for inspection
+        # only; apply() rejects them with a clear message.
+        self.__dict__.update(state)
+        if "processor_states" in state and "processing" not in state:
+            return
+        if "causal" not in state:
+            self.__dict__["causal"] = self.processing.causal
+        if "version" not in state:
+            self.__dict__["version"] = 1
+
     def save(self, path) -> None:
         joblib.dump(self, Path(path))
 
@@ -215,6 +230,11 @@ class PipelineState:
         Raises for non-causal states (e.g. SSA in the chain) unless explicitly
         overridden — batch-SVD output at time t uses the future.
         """
+        if not hasattr(self, "processing"):
+            raise ValueError(
+                "This is a v1 FeatureState (processor_states schema) — it predates "
+                "the v2 pipeline and cannot be re-applied by current code. Retrain "
+                "the run with the current scripts to regenerate feature_state.joblib.")
         if not self.causal and not allow_non_causal:
             raise ValueError(
                 "This pipeline state contains non-causal transforms (e.g. SSA): "

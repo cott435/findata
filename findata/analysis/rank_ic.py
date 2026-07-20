@@ -21,8 +21,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import t as t_dist
 
-from findata.preprocess.base import date_values
-
 
 @dataclass
 class TargetRanks:

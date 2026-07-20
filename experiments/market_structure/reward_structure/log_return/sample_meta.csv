@@ -1,0 +1,9 @@
+ticker,name,sector,industry,first_price_date,last_price_date,last_filings_date,last_form4_date,yf_seeded,edgar_seeded,created_at,updated_at,market_cap,cap_bucket
+ADC,,Real Estate,REIT - Retail,2005-01-03,2026-06-26,,,True,False,2026-06-28 09:56:18.124112,2026-06-28 09:56:18.123517,9260000000.0,mid
+ALNT,,Technology,Electronic Components,2014-05-20,2026-06-26,,,True,False,2026-06-28 09:55:16.129697,2026-06-28 09:55:16.129092,1660000000.0,small
+AROC,,Energy,Oil & Gas Equipment & Services,2007-08-21,2026-06-26,,,True,False,2026-06-28 09:55:18.227846,2026-06-28 09:55:18.227231,7350000000.0,mid
+DEA,,Real Estate,REIT - Office,2015-02-06,2026-06-26,,,True,False,2026-06-28 09:56:52.325137,2026-06-28 09:56:52.324538,1280000000.0,small
+EPR,,Real Estate,REIT - Specialty,2005-01-03,2026-07-15,,,True,False,2026-07-15 16:32:45.283616,2026-07-15 16:32:45.282958,4570000000.0,mid
+L,,Financial Services,Insurance - Property & Casualty,2005-01-03,2026-07-15,,,True,False,2026-07-15 16:46:02.306165,2026-07-15 16:46:02.305416,23300000000.0,large
+NTCT,,Technology,Software - Infrastructure,2005-01-03,2026-06-26,,,True,False,2026-06-28 09:57:36.610068,2026-06-28 09:57:36.609462,2970000000.0,mid
+SWBI,,Industrials,Aerospace & Defense,2005-01-03,2026-07-15,,,True,False,2026-07-15 17:16:07.128936,2026-07-15 17:16:07.128308,681190000.0,small

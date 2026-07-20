@@ -1,0 +1,12 @@
+,0
+tag,correlated subset
+n_features,7
+mean_abs_pool,0.604149244965816
+mean_abs_global,0.7077990260133014
+mean_abs_sector,0.6500650491041747
+mean_abs_resid_global,0.5781817091644201
+mean_abs_resid_sector,0.5511004594671189
+frac_feature_corr_from_market,0.042981988337774335
+k_pool,3
+k_resid,3
+cluster_ARI_pool_vs_resid,1.0

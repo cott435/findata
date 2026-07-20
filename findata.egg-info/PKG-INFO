@@ -12,4 +12,6 @@ Requires-Dist: seaborn
 Requires-Dist: matplotlib
 Requires-Dist: scikit-learn
 Requires-Dist: holoviews>=1.23.1
+Requires-Dist: panel
+Requires-Dist: bokeh
 Requires-Dist: statsmodels>=0.14.6

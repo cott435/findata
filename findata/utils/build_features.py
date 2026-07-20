@@ -38,16 +38,19 @@ def build_features(
     verbose: bool = False,
     feat_eng: bool = False,
     processing: ProcessingConfig | None = None,
+    ticker_meta: pd.DataFrame | pd.Series | None = None,
 ) -> FeatureBundle:
     """Fit a FeaturePipeline and return the combined feature table.
 
     ``processors`` accepts FeatureGroup classes or instances (default: the five
     v2 groups). ``feat_eng=True`` returns the engineered (unscaled) panel, as in
     v1. ``processing`` optionally applies a transform chain after scaling.
+    ``ticker_meta`` (the ticker_info frame from get_all_data, or a ticker ->
+    sector Series) is required by sector-aware steps such as 'modes'.
     """
     pipe = FeaturePipeline(groups=processors, processing=processing,
                            feature_set=feature_set, verbose=verbose)
-    pipe.fit(data, data_splits)
+    pipe.fit(data, data_splits, meta=ticker_meta)
     features = pipe.engineered_ if feat_eng else pipe.features_
     return FeatureBundle(features=features, provenance=pipe.provenance,
                          state=pipe.get_state())

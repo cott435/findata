@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 from findata.preprocess import rmt
-from findata.preprocess.base import ScaleRule, date_values, get_scaler
+from findata.preprocess.feature_building.base import ScaleRule, date_values, get_scaler
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +30,11 @@ from findata.preprocess.base import ScaleRule, date_values, get_scaler
 
 class PanelTransform:
     causal: bool = True
+    needs_meta: bool = False   # True -> must receive ticker metadata via bind_meta
+
+    def bind_meta(self, meta) -> None:
+        """Receive ticker metadata (e.g. a ticker -> sector map) before fit.
+        Default: no-op; see ModeDecomposer for a consumer."""
 
     def fit(self, train_X: pd.DataFrame) -> "PanelTransform":
         return self
@@ -624,13 +629,20 @@ class ProcessingConfig:
                 steps.append((slot, dict(self.params.get(slot, {}))))
         return tuple(steps)
 
-    def build(self, scale_rules: list[ScaleRule]) -> "ProcessingPipeline":
+    def build(self, scale_rules: list[ScaleRule], meta=None) -> "ProcessingPipeline":
         transforms = [GroupScaler(scale_rules)]
         for step_name, params in self.resolved_steps():
             if step_name not in STEP_REGISTRY:
                 raise KeyError(f"Unknown processing step {step_name!r}; "
                                f"available: {sorted(STEP_REGISTRY)}")
-            transforms.append(STEP_REGISTRY[step_name](**params))
+            t = STEP_REGISTRY[step_name](**params)
+            if t.needs_meta and meta is None:
+                raise ValueError(
+                    f"Step {step_name!r} needs ticker metadata (sector map): pass "
+                    "ticker_meta=... to build_features / meta=... to FeaturePipeline.fit")
+            if meta is not None:
+                t.bind_meta(meta)
+            transforms.append(t)
         return ProcessingPipeline(transforms, config=self)
 
 

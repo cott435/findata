@@ -22,7 +22,7 @@ from findata.database.ticker_sampling import TickerSampler
 
 logger = logging.getLogger('scripts.init_yf')
 
-DEFAULT_TICKERS = TickerSampler().sample(200, 123)
+DEFAULT_TICKERS = TickerSampler().sample(800, 123)
 
 
 def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:
@@ -72,7 +72,7 @@ def main(use_all=False):
         subset = todo[i:i + max_tickers]
         data = YahooFinance(subset).request_ticker_financials(start='1/1/2005')
         if 'prices' not in data:
-            logger.error('Download failed, nothing inserted.')
+            logger.error('Download failed, , nothing inserted.')
             return
         counts = db.add_ticker_data(data['info'], data['prices'])
 

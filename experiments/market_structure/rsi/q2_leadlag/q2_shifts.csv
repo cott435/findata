@@ -1,0 +1,854 @@
+ticker,shift,sector,cap_bucket,market_cap
+A,0,Healthcare,large,38410000000.0
+AA,0,Basic Materials,large,14280000000.0
+AAOI,0,Technology,mid,10890000000.0
+AAON,0,Industrials,mid,10380000000.0
+AAP,0,Consumer Cyclical,mid,3750000000.0
+AAT,0,Real Estate,small,1950000000.0
+ABBV,0,Healthcare,large,447620000000.0
+ABEO,0,Healthcare,small,319740000.0
+ACAD,0,Healthcare,mid,4340000000.0
+ACHC,0,Healthcare,mid,2520000000.0
+ACIW,0,Technology,mid,5010000000.0
+ACM,0,Industrials,mid,9130000000.0
+ACMR,0,Technology,mid,7220000000.0
+ACN,0,Technology,large,78930000000.0
+ADC,0,Real Estate,mid,9260000000.0
+ADP,0,Technology,large,89360000000.0
+ADSK,0,Technology,large,41440000000.0
+AEHR,0,Technology,mid,2890000000.0
+AEM,0,Basic Materials,large,78620000000.0
+AER,0,Industrials,large,23470000000.0
+AES,0,Utilities,mid,10460000000.0
+AFG,0,Financial Services,large,11560000000.0
+AFL,0,Financial Services,large,61150000000.0
+AGI,0,Basic Materials,large,13050000000.0
+AGO,0,Financial Services,mid,3530000000.0
+AGX,0,Industrials,mid,10730000000.0
+AHRT,0,Real Estate,small,717070000.0
+AIG,0,Financial Services,large,40070000000.0
+AIR,0,Industrials,mid,5620000000.0
+AIV,0,Real Estate,small,454190000.0
+AJG,0,Financial Services,large,58070000000.0
+ALB,0,Basic Materials,large,15770000000.0
+ALLT,0,Technology,small,382090000.0
+ALLY,0,Financial Services,large,14460000000.0
+ALNT,0,Technology,small,1660000000.0
+ALNY,0,Healthcare,large,38900000000.0
+ALRM,0,Technology,small,2290000000.0
+ALSN,0,Consumer Cyclical,mid,9940000000.0
+ALV,0,Consumer Cyclical,mid,8920000000.0
+AMAT,0,Technology,large,497690000000.0
+AMBA,0,Technology,mid,2730000000.0
+AMC,0,Communication Services,small,1930000000.0
+AMD,0,Technology,large,850490000000.0
+AMH,0,Real Estate,large,14000000000.0
+AMN,0,Healthcare,small,1270000000.0
+AMPH,0,Healthcare,small,960340000.0
+AMRN,0,Healthcare,small,333620000.0
+AMT,0,Real Estate,large,81810000000.0
+AN,0,Consumer Cyclical,mid,6410000000.0
+ANAB,0,Healthcare,small,1840000000.0
+ANET,0,Technology,large,198450000000.0
+ANF,0,Consumer Cyclical,mid,4070000000.0000005
+AON,0,Financial Services,large,70200000000.0
+AORT,0,Healthcare,small,1150000000.0
+AOS,0,Industrials,mid,8510000000.0
+APAM,0,Financial Services,mid,2880000000.0
+APD,0,Basic Materials,large,61860000000.0
+APH,0,Technology,large,201410000000.0
+APO,0,Financial Services,large,68200000000.0
+APPF,0,Technology,mid,5500000000.0
+APPN,0,Technology,small,1610000000.0
+AQN,0,Utilities,mid,4600000000.0
+ARCC,0,Financial Services,large,13060000000.0
+ARE,0,Real Estate,mid,9620000000.0
+AROC,0,Energy,mid,7350000000.0
+ARR,0,Real Estate,small,2140000000.0000002
+ASA,0,Financial Services,small,1000000000.0
+ASB,0,Financial Services,mid,5120000000.0
+ASML,0,Technology,large,692630000000.0
+ASND,0,Healthcare,large,16200000000.0
+ASYS,0,Technology,small,341810000.0
+ATEN,0,Technology,mid,2520000000.0
+ATI,0,Industrials,large,26940000000.0
+ATNI,0,Communication Services,small,402550000.0
+ATR,0,Healthcare,mid,8039999999.999999
+ATRC,0,Healthcare,small,1530000000.0
+ATRO,0,Industrials,mid,3630000000.0
+AUPH,0,Healthcare,small,2220000000.0
+AVA,0,Utilities,mid,3450000000.0
+AVB,0,Real Estate,large,27140000000.0
+AVGO,0,Technology,large,1740000000000.0
+AVNS,0,Healthcare,small,1170000000.0
+AVNT,0,Basic Materials,mid,3480000000.0
+AVT,0,Technology,mid,7080000000.0
+AWK,0,Utilities,large,25910000000.0
+AXON,0,Industrials,large,37470000000.0
+AXS,0,Financial Services,mid,8020000000.0
+AZN,0,Healthcare,large,293490000000.0
+AZO,0,Consumer Cyclical,large,51080000000.0
+BA,0,Industrials,large,171260000000.0
+BABA,0,Consumer Cyclical,large,216610000000.0
+BAH,0,Industrials,mid,7450000000.0
+BANC,0,Financial Services,mid,3210000000.0
+BANF,0,Financial Services,mid,3850000000.0
+BAP,0,Financial Services,large,30520000000.0
+BBAR,0,Financial Services,mid,4040000000.0
+BBD,0,Financial Services,large,33619999999.999996
+BBSI,0,Industrials,small,885620000.0
+BBW,0,Consumer Cyclical,small,382700000.0
+BBWI,0,Consumer Cyclical,mid,4610000000.0
+BCC,0,Basic Materials,mid,2850000000.0
+BEN,0,Financial Services,large,17260000000.0
+BFAM,0,Consumer Cyclical,mid,3690000000.0
+BFH,0,Financial Services,mid,4290000000.0
+BFS,0,Real Estate,small,1340000000.0
+BG,0,Consumer Defensive,large,21450000000.0
+BGS,0,Consumer Defensive,small,336030000.0
+BHC,0,Healthcare,small,1780000000.0
+BHE,0,Technology,mid,3300000000.0
+BHF,0,Financial Services,mid,3630000000.0
+BIDU,0,Communication Services,large,35460000000.0
+BKD,0,Healthcare,mid,3750000000.0
+BKH,0,Utilities,mid,5790000000.0
+BKNG,0,Consumer Cyclical,large,140610000000.0
+BLBD,0,Industrials,mid,2490000000.0
+BLDR,0,Industrials,mid,9590000000.0
+BLK,0,Financial Services,large,157090000000.0
+BLMN,0,Consumer Cyclical,small,767960000.0
+BLX,0,Financial Services,small,2330000000.0
+BMA,0,Financial Services,mid,6080000000.0
+BMO,0,Financial Services,large,122750000000.0
+BMRN,0,Healthcare,large,11400000000.0
+BN,0,Financial Services,large,96060000000.0
+BNS,0,Financial Services,large,105890000000.0
+BNY,0,Financial Services,large,98540000000.0
+BOH,0,Financial Services,mid,3250000000.0
+BOX,0,Technology,mid,3670000000.0
+BPOP,0,Financial Services,mid,10700000000.0
+BRK-B,0,Financial Services,mid,
+BRO,0,Financial Services,large,21770000000.0
+BRSL,0,Consumer Cyclical,small,2060000000.0
+BTG,0,Basic Materials,mid,5270000000.0
+BTI,0,Consumer Defensive,large,135680000000.0
+BUD,0,Consumer Defensive,large,166150000000.0
+BUSE,0,Financial Services,mid,2520000000.0
+BWXT,0,Industrials,large,18130000000.0
+BXC,0,Industrials,small,508030000.0
+BY,0,Financial Services,small,1710000000.0
+CACC,0,Financial Services,mid,6580000000.0
+CACI,0,Technology,mid,10030000000.0
+CAG,0,Consumer Defensive,mid,6740000000.0
+CAKE,0,Consumer Cyclical,mid,3990000000.0
+CALX,0,Technology,small,2270000000.0
+CALY,0,Consumer Cyclical,mid,3460000000.0
+CAMT,0,Technology,mid,7080000000.0
+CARG,0,Consumer Cyclical,mid,2980000000.0
+CARS,0,Communication Services,small,600960000.0
+CAT,0,Industrials,large,459430000000.0
+CBU,0,Financial Services,mid,3550000000.0
+CBZ,0,Industrials,small,1650000000.0
+CCEP,0,Consumer Defensive,large,44640000000.0
+CCJ,0,Energy,large,45060000000.0
+CCOI,0,Communication Services,small,640600000.0
+CCRN,0,Healthcare,small,409930000.0
+CCS,0,Real Estate,small,2069999999.9999998
+CDNA,0,Healthcare,small,1490000000.0
+CDW,0,Technology,large,17030000000.000002
+CECO,0,Industrials,mid,5370000000.0
+CELH,0,Consumer Defensive,mid,7630000000.0
+CET,0,Financial Services,small,1530000000.0
+CEVA,0,Technology,small,1180000000.0
+CFFN,0,Financial Services,small,1050000000.0
+CGAU,0,Basic Materials,mid,3140000000.0
+CGC,0,Healthcare,small,392750000.0
+CHCT,0,Real Estate,small,494890000.0
+CHD,-6,Consumer Defensive,large,23590000000.0
+CHDN,0,Consumer Cyclical,mid,6200000000.0
+CHKP,0,Technology,large,13530000000.0
+CHRW,0,Industrials,large,21140000000.0
+CHT,0,Communication Services,large,34800000000.0
+CI,0,Healthcare,large,74810000000.0
+CIA,0,Financial Services,small,322530000.0
+CIEN,0,Technology,large,67870000000.00001
+CIVB,0,Financial Services,small,595860000.0
+CL,0,Consumer Defensive,large,73670000000.0
+CLDX,0,Healthcare,mid,2770000000.0
+CLF,0,Basic Materials,mid,5680000000.0
+CLFD,0,Technology,small,524960000.00000006
+CLS,0,Technology,large,41490000000.0
+CMBT,0,Energy,mid,4139999999.9999995
+CME,0,Financial Services,large,80080000000.0
+CMG,0,Consumer Cyclical,large,42770000000.0
+CMP,0,Basic Materials,small,1300000000.0
+CNA,0,Financial Services,large,13080000000.0
+CNC,0,Healthcare,large,32460000000.0
+CNH,0,Industrials,large,13680000000.0
+CNI,0,Industrials,large,73230000000.0
+CNK,0,Communication Services,mid,3860000000.0
+CNOB,0,Financial Services,small,1670000000.0
+CNS,0,Financial Services,mid,4030000000.0000005
+CNXN,0,Technology,small,1800000000.0
+CODI,0,Industrials,small,783210000.0
+COKE,0,Consumer Defensive,large,12520000000.0
+COLB,0,Financial Services,mid,9310000000.0
+CORT,0,Healthcare,mid,9370000000.0
+COTY,0,Consumer Defensive,small,1690000000.0
+CPB,-7,Consumer Defensive,mid,6780000000.0
+CQP,0,Energy,large,29300000000.0
+CRAI,0,Industrials,small,947870000.0
+CRMD,0,Healthcare,small,615850000.0
+CRS,0,Industrials,large,29400000000.0
+CRUS,0,Technology,mid,7410000000.0
+CRVS,0,Healthcare,small,1130000000.0
+CSGP,0,Real Estate,large,12350000000.0
+CSL,0,Industrials,large,15680000000.0
+CSR,0,Real Estate,small,1010000000.0
+CSW,0,Industrials,mid,4610000000.0
+CSWC,0,Financial Services,small,1440000000.0
+CTBI,0,Financial Services,small,1310000000.0
+CTRE,0,Real Estate,mid,9650000000.0
+CUBI,0,Financial Services,mid,2740000000.0
+CUZ,0,Real Estate,mid,4930000000.0
+CVBF,0,Financial Services,mid,3960000000.0
+CVEO,0,Consumer Cyclical,small,370100000.0
+CVS,0,Healthcare,large,133130000000.0
+CWEN,0,Utilities,mid,7570000000.0
+CWH,0,Consumer Cyclical,small,785960000.0
+CYD,0,Consumer Cyclical,small,1680000000.0
+CYRX,0,Industrials,small,806440000.0
+CZNC,0,Financial Services,small,420860000.0
+CZR,0,Consumer Cyclical,mid,6150000000.0
+D,0,Utilities,large,61030000000.0
+DAKT,0,Technology,small,943000000.0
+DAR,0,Consumer Defensive,mid,8340000000.0
+DBI,0,Consumer Cyclical,small,316850000.0
+DBVT,0,Healthcare,small,969960000.0
+DCH,0,Consumer Cyclical,small,1290000000.0
+DCO,0,Industrials,mid,2680000000.0
+DCOM,0,Financial Services,small,1790000000.0
+DEA,0,Real Estate,small,1280000000.0
+DECK,0,Consumer Cyclical,large,14520000000.0
+DHC,0,Real Estate,small,2300000000.0
+DIOD,0,Technology,mid,4780000000.0
+DK,0,Energy,mid,2930000000.0
+DKS,0,Consumer Cyclical,large,21410000000.0
+DLB,0,Industrials,mid,5060000000.0
+DMLP,0,Energy,small,1240000000.0
+DNN,0,Energy,mid,2800000000.0
+DOC,0,Real Estate,large,15140000000.0
+DORM,0,Consumer Cyclical,mid,4019999999.9999995
+DQ,-1,Technology,small,868830000.0
+DRD,0,Basic Materials,small,1850000000.0
+DRH,0,Real Estate,mid,2560000000.0
+DSGX,0,Technology,mid,5710000000.0
+DVA,0,Healthcare,large,13930000000.0
+DXPE,0,Industrials,mid,2530000000.0
+EBS,0,Healthcare,small,440120000.0
+ECC,0,Financial Services,small,489170000.0
+ECL,0,Basic Materials,large,79830000000.0
+ED,0,Utilities,large,41300000000.0
+EEX,0,Communication Services,small,991530000.0
+EFOR,0,Technology,small,804010000.0
+EGBN,0,Financial Services,small,888340000.0
+EGP,0,Real Estate,mid,11130000000.0
+EIX,0,Utilities,large,29120000000.0
+EMBJ,0,Industrials,mid,11130000000.0
+EMR,0,Industrials,large,80370000000.0
+ENPH,0,Technology,mid,6270000000.0
+ENSG,0,Healthcare,mid,9450000000.0
+ENVA,0,Financial Services,mid,5760000000.0
+EPD,0,Energy,large,79120000000.0
+EPR,0,Real Estate,mid,4570000000.0
+EQBK,0,Financial Services,small,1020000000.0
+EQIX,0,Real Estate,large,107630000000.0
+EQT,0,Energy,large,32960000000.0
+ERIC,0,Technology,large,36500000000.0
+ESE,0,Technology,mid,8810000000.0
+ESLT,0,Industrials,large,33549999999.999996
+ETD,0,Consumer Cyclical,small,573310000.0
+EVRG,0,Utilities,large,20100000000.0
+EW,0,Healthcare,large,52270000000.0
+EXK,0,Basic Materials,small,2380000000.0
+EXLS,0,Technology,mid,3970000000.0
+EXP,0,Basic Materials,mid,7240000000.0
+EXPD,0,Industrials,large,21020000000.0
+EXR,0,Real Estate,large,32930000000.0
+EXTR,0,Technology,mid,4150000000.0000005
+EYE,0,Consumer Cyclical,small,1510000000.0
+F,0,Consumer Cyclical,large,56300000000.0
+FCBC,0,Financial Services,small,851830000.0
+FCF,0,Financial Services,small,2080000000.0
+FELE,0,Industrials,mid,4770000000.0
+FFBC,0,Financial Services,mid,3540000000.0
+FFIV,0,Technology,large,22260000000.0
+FHB,0,Financial Services,mid,3590000000.0
+FHI,0,Financial Services,mid,4170000000.0
+FHN,0,Financial Services,large,12140000000.0
+FINV,-1,Financial Services,small,1180000000.0
+FIS,0,Technology,large,19940000000.0
+FISI,0,Financial Services,small,766390000.0
+FITB,0,Financial Services,large,51030000000.0
+FIVE,0,Consumer Cyclical,mid,10420000000.0
+FIVN,0,Technology,small,1630000000.0
+FLEX,0,Technology,large,53750000000.0
+FLG,0,Financial Services,mid,6370000000.0
+FLO,0,Consumer Defensive,small,1690000000.0
+FMC,0,Basic Materials,small,1470000000.0
+FMNB,0,Financial Services,small,874610000.0
+FMS,0,Healthcare,large,12520000000.0
+FN,0,Technology,large,18800000000.0
+FND,0,Consumer Cyclical,mid,6440000000.0
+FPI,0,Real Estate,small,432680000.0
+FRBA,0,Financial Services,small,438330000.0
+FRPT,0,Consumer Defensive,mid,2820000000.0
+FRST,0,Financial Services,small,412450000.0
+FSM,0,Basic Materials,mid,2540000000.0
+FTAI,0,Industrials,large,26680000000.0
+FTS,0,Utilities,large,29390000000.0
+FTV,0,Technology,large,18740000000.0
+FUN,0,Consumer Cyclical,small,2250000000.0
+FWRD,0,Industrials,small,470260000.0
+GABC,0,Financial Services,small,1790000000.0
+GAP,0,Consumer Cyclical,mid,7280000000.0
+GASS,0,Industrials,small,303440000.0
+GATX,0,Industrials,mid,6470000000.0
+GBDC,0,Financial Services,mid,3270000000.0
+GD,0,Industrials,large,93620000000.0
+GDDY,0,Technology,large,11200000000.0
+GE,0,Industrials,large,384990000000.0
+GEO,0,Industrials,mid,3980000000.0
+GEVO,0,Basic Materials,small,332500000.0
+GGAL,0,Financial Services,mid,8270000000.0
+GIC,0,Industrials,small,1340000000.0
+GIL,0,Consumer Cyclical,mid,9900000000.0
+GKOS,0,Healthcare,mid,8480000000.0
+GM,0,Consumer Cyclical,large,70420000000.0
+GME,0,Consumer Cyclical,mid,9760000000.0
+GMED,0,Healthcare,large,11710000000.0
+GNL,0,Real Estate,small,1910000000.0
+GNRC,0,Industrials,large,16399999999.999998
+GNTX,0,Consumer Cyclical,mid,5460000000.0
+GNW,0,Financial Services,mid,3620000000.0
+GOLF,0,Consumer Cyclical,mid,6910000000.0
+GOOD,0,Real Estate,small,605100000.0
+GOOGL,0,Communication Services,large,4120000000000.0
+GPI,0,Consumer Cyclical,mid,3550000000.0
+GPRK,0,Energy,small,597020000.0
+GRBK,0,Consumer Cyclical,mid,3460000000.0
+GRMN,0,Technology,large,44840000000.0
+GSBC,0,Financial Services,small,861110000.0
+GT,0,Consumer Cyclical,small,1960000000.0
+GTLS,0,Industrials,mid,9980000000.0
+GTN,0,Communication Services,small,371180000.0
+GTY,0,Real Estate,small,2060000000.0
+GVA,0,Industrials,mid,7020000000.0
+GYRE,0,Healthcare,small,574730000.0
+HAE,0,Healthcare,mid,3510000000.0
+HALO,0,Healthcare,mid,8890000000.0
+HAPN,0,Financial Services,small,2320000000.0
+HAS,0,Consumer Cyclical,large,12070000000.0
+HBAN,0,Financial Services,large,36060000000.0
+HBM,0,Basic Materials,mid,9340000000.0
+HD,0,Consumer Cyclical,large,347850000000.0
+HDB,0,Financial Services,large,129970000000.0
+HEI-A,0,Industrials,mid,
+HFWA,0,Financial Services,small,1220000000.0
+HII,0,Industrials,mid,11110000000.0
+HIMX,0,Technology,mid,2510000000.0
+HIVE,0,Financial Services,small,1070000000.0000001
+HLIT,0,Technology,small,1620000000.0
+HLNE,0,Financial Services,mid,4370000000.0
+HLX,0,Energy,small,1310000000.0
+HMN,0,Financial Services,small,2080000000.0
+HON,0,Industrials,large,147140000000.0
+HP,0,Energy,mid,3380000000.0
+HR,0,Real Estate,mid,7190000000.0
+HRB,0,Consumer Cyclical,mid,4720000000.0
+HRTG,0,Financial Services,small,762900000.0
+HRZN,0,Financial Services,small,301030000.0
+HSBC,0,Financial Services,large,322410000000.0
+HSIC,0,Healthcare,mid,9680000000.0
+HTB,0,Financial Services,small,813500000.0
+HTLD,0,Industrials,small,1200000000.0
+HTO,0,Utilities,mid,2540000000.0
+HTT,0,Financial Services,small,389760000.0
+HUBS,0,Technology,mid,9500000000.0
+HWC,0,Financial Services,mid,6040000000.0
+HWKN,0,Basic Materials,mid,3370000000.0
+HZO,0,Consumer Cyclical,small,831340000.0
+IBOC,0,Financial Services,mid,4840000000.0
+IBP,0,Consumer Cyclical,mid,6250000000.0
+ICFI,0,Industrials,small,1290000000.0
+IDT,0,Communication Services,small,1430000000.0
+IIIN,0,Industrials,small,593300000.0
+ILMN,0,Healthcare,large,26710000000.0
+IMKTA,0,Consumer Defensive,small,1700000000.0
+IMO,0,Energy,large,54830000000.0
+INSM,0,Healthcare,large,22410000000.0
+INVA,0,Healthcare,small,1740000000.0
+INVX,0,Energy,small,1750000000.0
+IOSP,0,Basic Materials,small,2040000000.0
+IPGP,0,Technology,mid,4550000000.0
+IPI,0,Basic Materials,small,455910000.0
+IQV,0,Healthcare,large,31900000000.0
+IRS,0,Real Estate,small,1290000000.0
+IRT,0,Real Estate,mid,4080000000.0
+IRTC,0,Healthcare,mid,3910000000.0
+IRWD,0,Healthcare,small,679850000.0
+ITGR,0,Healthcare,mid,3190000000.0
+ITT,0,Industrials,large,17260000000.0
+ITW,0,Industrials,large,77020000000.0
+IVZ,0,Financial Services,large,11600000000.0
+IX,0,Financial Services,large,41720000000.0
+JBHT,0,Industrials,large,26430000000.0
+JBSS,0,Consumer Defensive,small,1020000000.0
+JBTM,0,Industrials,mid,7250000000.0
+JHX,0,Basic Materials,large,15010000000.0
+JKHY,0,Technology,mid,9590000000.0
+JLL,0,Real Estate,large,14620000000.0
+JNJ,0,Healthcare,large,613020000000.0
+JOYY,0,Communication Services,mid,3360000000.0
+JPM,0,Financial Services,large,881690000000.0
+KBH,0,Consumer Cyclical,mid,3810000000.0
+KBR,0,Industrials,mid,4230000000.0000005
+KE,0,Industrials,small,589200000.0
+KEP,0,Utilities,large,15530000000.0
+KFRC,0,Industrials,small,828350000.0
+KGC,0,Basic Materials,large,28930000000.0
+KHC,0,Consumer Defensive,large,28100000000.0
+KLIC,0,Technology,mid,6550000000.0
+KMPR,0,Financial Services,small,1580000000.0
+KN,0,Technology,mid,3430000000.0
+KNOP,0,Energy,small,344840000.0
+KNX,0,Industrials,large,12450000000.0
+KODK,0,Industrials,small,934110000.0
+KOF,0,Consumer Defensive,large,22500000000.0
+KOP,0,Basic Materials,small,867740000.0
+KOPN,0,Technology,small,673530000.0
+KOS,0,Energy,small,1290000000.0
+KR,-6,Consumer Defensive,large,35370000000.0
+KRC,0,Real Estate,mid,4470000000.0
+KREF,0,Real Estate,small,461030000.0
+KRNY,0,Financial Services,small,585280000.0
+L,0,Financial Services,large,23300000000.0
+LAMR,0,Real Estate,large,15840000000.0
+LAND,0,Real Estate,small,371410000.0
+LAUR,0,Consumer Defensive,mid,5200000000.0
+LAZ,0,Financial Services,mid,3950000000.0
+LBRDA,0,Communication Services,mid,6610000000.0
+LBTYK,0,Communication Services,mid,3550000000.0
+LCII,0,Consumer Cyclical,small,2330000000.0
+LEA,0,Consumer Cyclical,mid,6860000000.0
+LECO,0,Industrials,large,14600000000.0
+LGIH,0,Consumer Cyclical,small,1530000000.0
+LH,0,Healthcare,large,22260000000.0
+LII,0,Industrials,large,19620000000.0
+LILA,0,Communication Services,small,1440000000.0
+LIN,0,Basic Materials,large,240240000000.0
+LITE,0,Technology,large,63560000000.0
+LKFN,0,Financial Services,small,1560000000.0
+LLY,0,Healthcare,large,1080000000000.0001
+LNC,0,Financial Services,mid,7020000000.0
+LOB,0,Financial Services,small,1920000000.0
+LOMA,0,Basic Materials,small,1350000000.0
+LQDT,0,Consumer Cyclical,small,1220000000.0
+LRCX,0,Technology,large,474080000000.0
+LRN,4,Consumer Defensive,mid,3650000000.0
+LSCC,0,Technology,large,19010000000.0
+LULU,0,Consumer Cyclical,large,13350000000.0
+LW,0,Consumer Defensive,mid,6240000000.0
+LXFR,0,Industrials,small,496780000.0
+LXP,0,Real Estate,mid,3280000000.0
+LYTS,0,Technology,small,945600000.0
+LYV,0,Communication Services,large,41760000000.0
+MAA,0,Real Estate,large,16790000000.0
+MAN,0,Industrials,small,1680000000.0
+MAR,0,Consumer Cyclical,large,99490000000.0
+MAS,0,Industrials,large,15870000000.0
+MATW,0,Industrials,small,850270000.0
+MCK,0,Healthcare,large,89390000000.0
+MCRI,0,Consumer Cyclical,mid,2380000000.0
+MDT,0,Healthcare,large,103660000000.0
+MDU,0,Utilities,mid,4570000000.0
+MDXG,0,Healthcare,small,585360000.0
+MEDP,0,Healthcare,large,15050000000.0
+META,0,Communication Services,large,1400000000000.0
+METC,0,Basic Materials,small,820310000.0
+MFA,0,Real Estate,small,996660000.0
+MFIC,0,Financial Services,small,816310000.0
+MGA,0,Consumer Cyclical,large,17760000000.0
+MGM,0,Consumer Cyclical,large,12590000000.0
+MGNI,0,Communication Services,mid,2680000000.0
+MHK,0,Consumer Cyclical,mid,7300000000.0
+MHO,0,Consumer Cyclical,mid,4170000000.0
+MKC,-1,Consumer Defensive,large,13720000000.0
+MKL,0,Financial Services,large,24030000000.0
+MKSI,0,Technology,large,26250000000.0
+MLKN,0,Consumer Cyclical,small,1360000000.0
+MLM,0,Basic Materials,large,36990000000.0
+MMM,0,Industrials,large,85540000000.0
+MMSI,0,Healthcare,mid,4280000000.0000005
+MOH,0,Healthcare,large,11970000000.0
+MOS,0,Basic Materials,mid,7110000000.0
+MRSH,0,Financial Services,large,81660000000.0
+MRVL,0,Technology,large,233370000000.0
+MSI,0,Technology,large,66879999999.99999
+MSM,0,Industrials,mid,6600000000.0
+MTDR,0,Energy,mid,6200000000.0
+MTH,0,Consumer Cyclical,mid,5680000000.0
+MTLS,0,Technology,small,413790000.0
+MTUS,0,Basic Materials,small,829640000.0
+MUR,0,Energy,mid,4960000000.0
+MXL,0,Technology,mid,8650000000.0
+MYGN,0,Healthcare,small,555360000.0
+MYRG,0,Industrials,mid,7440000000.0
+MZTI,0,Consumer Defensive,mid,3180000000.0
+NAVI,0,Financial Services,small,817710000.0
+NBTB,0,Financial Services,mid,2580000000.0
+NC,0,Energy,small,389920000.0
+NEOG,0,Healthcare,small,2089999999.9999998
+NEU,0,Basic Materials,mid,7290000000.0
+NEXA,0,Basic Materials,small,1700000000.0
+NFBK,0,Financial Services,small,626040000.0
+NFG,0,Energy,mid,7460000000.0
+NGG,0,Utilities,large,81900000000.0
+NHC,0,Healthcare,mid,3230000000.0
+NHI,0,Real Estate,mid,3760000000.0
+NI,0,Utilities,large,23530000000.0
+NIC,0,Financial Services,mid,3470000000.0
+NICE,0,Technology,mid,5080000000.0
+NKTR,0,Healthcare,small,2150000000.0
+NLY,0,Real Estate,large,16820000000.0
+NMM,0,Industrials,small,2000000000.0
+NMR,0,Financial Services,large,25740000000.0
+NNN,0,Real Estate,mid,9030000000.0
+NOA,0,Energy,small,367520000.0
+NOAH,0,Financial Services,small,651490000.0
+NOC,0,Industrials,large,71020000000.0
+NODK,0,Financial Services,small,334460000.0
+NOMD,0,Consumer Defensive,small,1550000000.0
+NOV,0,Energy,mid,6700000000.0
+NOVT,0,Technology,mid,5610000000.0
+NOW,0,Technology,large,101420000000.0
+NPKI,0,Industrials,small,1320000000.0
+NPO,0,Industrials,mid,8010000000.0
+NRC,0,Healthcare,small,468990000.0
+NRG,0,Utilities,large,31510000000.0
+NRIM,0,Financial Services,small,621960000.0
+NSSC,0,Industrials,small,1330000000.0
+NTCT,0,Technology,mid,2970000000.0
+NTES,0,Communication Services,large,76600000000.0
+NTGR,0,Technology,small,613020000.0
+NTLA,0,Healthcare,small,2330000000.0
+NTRA,0,Healthcare,large,37510000000.0
+NVMI,0,Technology,large,15530000000.0
+NVO,0,Healthcare,large,214870000000.0
+NVR,0,Consumer Cyclical,large,18430000000.0
+NVS,0,Healthcare,large,286020000000.0
+NWN,0,Utilities,small,2140000000.0000002
+NWPX,0,Basic Materials,small,1430000000.0
+NWSA,0,Communication Services,large,13810000000.0
+OC,0,Industrials,mid,10900000000.0
+OCSL,0,Financial Services,small,1030000000.0
+OFG,0,Financial Services,small,2069999999.9999998
+OHI,0,Real Estate,large,14980000000.0
+OII,0,Energy,mid,3990000000.0
+OKTA,0,Technology,large,21600000000.0
+OLP,0,Real Estate,small,533700000.00000006
+OMAB,0,Industrials,mid,5420000000.0
+OMF,0,Financial Services,mid,6980000000.0
+ONB,0,Financial Services,mid,10000000000.0
+ONC,0,Healthcare,large,31130000000.0
+ONIT,0,Financial Services,small,312160000.0
+OPCH,0,Healthcare,mid,3430000000.0
+ORA,0,Utilities,mid,7140000000.0
+ORC,0,Real Estate,small,1390000000.0
+ORCL,0,Technology,large,427840000000.0
+OSG,0,Financial Services,small,300240000.0
+OSUR,0,Healthcare,small,307060000.0
+OTEX,0,Technology,mid,5360000000.0
+OTTR,0,Industrials,mid,3810000000.0
+OVID,0,Healthcare,small,475930000.0
+OXM,0,Consumer Cyclical,small,534980000.0
+OXY,0,Energy,large,49720000000.0
+P,0,Technology,large,22990000000.0
+PAA,0,Energy,large,15420000000.0
+PAG,0,Consumer Cyclical,large,11980000000.0
+PAGP,0,Energy,mid,5540000000.0
+PANW,0,Technology,large,247920000000.0
+PARR,0,Energy,mid,2740000000.0
+PAYC,0,Technology,mid,6020000000.0
+PAYS,0,Technology,small,456750000.0
+PBH,0,Healthcare,small,2340000000.0
+PBYI,0,Healthcare,small,412790000.0
+PCAR,0,Industrials,large,63510000000.0
+PCG,0,Utilities,large,38270000000.0
+PCTY,0,Technology,mid,5690000000.0
+PDFS,0,Technology,mid,2640000000.0
+PEB,0,Real Estate,small,2180000000.0
+PFBC,0,Financial Services,small,1240000000.0
+PFG,0,Financial Services,large,23280000000.0
+PFGC,0,Consumer Defensive,large,17350000000.0
+PFIS,0,Financial Services,small,671030000.0
+PFLT,0,Financial Services,small,734210000.0
+PGC,0,Financial Services,small,840060000.0
+PGEN,0,Healthcare,small,2089999999.9999998
+PHG,0,Healthcare,large,25940000000.0
+PII,0,Consumer Cyclical,mid,4130000000.0
+PIPR,0,Financial Services,mid,5410000000.0
+PJT,0,Financial Services,mid,6180000000.0
+PKE,0,Industrials,small,707340000.0
+PKG,0,Consumer Cyclical,large,21390000000.0
+PLAB,0,Technology,small,1810000000.0
+PLAY,0,Communication Services,small,411200000.0
+PLD,0,Real Estate,large,133389999999.99998
+PLOW,0,Consumer Cyclical,small,1250000000.0
+PLPC,0,Industrials,small,1930000000.0
+PLSE,0,Healthcare,small,1970000000.0
+PLUS,0,Technology,small,2069999999.9999998
+PLXS,0,Technology,mid,7690000000.0
+PNC,0,Financial Services,large,98380000000.0
+PNR,0,Industrials,large,12350000000.0
+PODD,0,Healthcare,mid,10960000000.0
+POOL,0,Industrials,mid,7710000000.0
+POWL,0,Industrials,mid,10190000000.0
+PRGS,0,Technology,small,1390000000.0
+PRK,0,Financial Services,mid,3330000000.0
+PRKS,0,Consumer Cyclical,small,2220000000.0
+PRLB,0,Industrials,small,1920000000.0
+PRTA,0,Healthcare,small,524580000.00000006
+PRU,0,Financial Services,large,37600000000.0
+PSKY,0,Communication Services,mid,10790000000.0
+PTC,0,Technology,large,13370000000.0
+PUK,0,Financial Services,large,33189999999.999996
+PZZA,0,Consumer Cyclical,small,1210000000.0
+QCRH,0,Financial Services,small,1620000000.0
+QGEN,1,Healthcare,mid,8150000000.0
+QRVO,0,Technology,mid,8260000000.0
+QSR,0,Consumer Cyclical,large,33920000000.0
+QUIK,0,Technology,small,337710000.0
+QURE,0,Healthcare,mid,3270000000.0
+R,0,Industrials,mid,10100000000.0
+RACE,0,Consumer Cyclical,large,64680000000.00001
+RBB,0,Financial Services,small,458120000.0
+RBBN,0,Technology,small,387510000.0
+RBCAA,0,Financial Services,small,1750000000.0
+RCI,0,Communication Services,large,19100000000.0
+RCKT,0,Healthcare,small,354880000.0
+RCKY,0,Consumer Cyclical,small,311310000.0
+RDN,0,Financial Services,mid,4990000000.0
+RDWR,0,Technology,small,1240000000.0
+RES,0,Energy,small,1280000000.0
+REX,0,Basic Materials,small,1450000000.0
+RGLD,0,Basic Materials,large,17650000000.0
+RGNX,0,Healthcare,small,541790000.0
+RHI,0,Industrials,mid,3290000000.0
+RIGL,0,Healthcare,small,715850000.0
+RIOT,0,Financial Services,mid,10800000000.0
+RITM,0,Real Estate,mid,5240000000.0
+RLJ,0,Real Estate,small,1810000000.0
+RM,0,Financial Services,small,377900000.0
+RMAX,0,Real Estate,small,333190000.0
+RNG,0,Technology,mid,3120000000.0
+RNR,0,Financial Services,large,13630000000.0
+ROKU,0,Communication Services,large,20000000000.0
+ROP,0,Technology,large,34140000000.0
+RPD,0,Technology,small,508580000.0
+RRC,0,Energy,mid,8850000000.0
+RRX,0,Industrials,large,14630000000.0
+RS,0,Basic Materials,large,19690000000.0
+RYN,0,Real Estate,mid,6630000000.0
+RYTM,0,Healthcare,mid,7530000000.0
+SA,0,Basic Materials,mid,2820000000.0
+SAM,0,Consumer Defensive,small,1960000000.0
+SAN,0,Financial Services,large,193350000000.0
+SAP,0,Technology,large,179950000000.0
+SAR,0,Financial Services,small,362610000.0
+SBLK,0,Industrials,mid,2720000000.0
+SBR,0,Energy,small,1070000000.0000001
+SBS,1,Utilities,large,19550000000.0
+SBSI,0,Financial Services,small,1040000000.0
+SBUX,0,Consumer Cyclical,large,119210000000.0
+SCCO,0,Basic Materials,large,142890000000.0
+SCHL,0,Communication Services,small,979470000.0
+SEI,0,Energy,mid,5650000000.0
+SFBS,0,Financial Services,mid,4840000000.0
+SFIX,0,Consumer Cyclical,small,605750000.0
+SFM,0,Consumer Defensive,mid,7720000000.0
+SHBI,0,Financial Services,small,779190000.0
+SHOO,0,Consumer Cyclical,mid,3160000000.0
+SHOP,0,Technology,large,152030000000.0
+SIGI,0,Financial Services,mid,5770000000.0
+SIRI,0,Communication Services,mid,9540000000.0
+SITE,0,Industrials,mid,5170000000.0
+SKM,0,Communication Services,large,12580000000.0
+SKT,0,Real Estate,mid,4840000000.0
+SLAB,0,Technology,mid,7200000000.0
+SLF,0,Financial Services,large,42980000000.0
+SLG,0,Real Estate,mid,4019999999.9999995
+SLM,0,Financial Services,mid,4800000000.0
+SLRC,0,Financial Services,small,677840000.0
+SM,0,Energy,mid,6310000000.0
+SMCI,0,Technology,large,19810000000.0
+SMFG,0,Financial Services,large,150680000000.0
+SMP,0,Consumer Cyclical,small,904560000.0
+SMPL,0,Consumer Defensive,small,1180000000.0
+SMTC,0,Technology,large,13950000000.0
+SNA,0,Industrials,large,20570000000.0
+SNAP,0,Communication Services,mid,7310000000.0
+SNN,0,Healthcare,large,12770000000.0
+SO,0,Utilities,large,109530000000.0
+SONY,0,Technology,large,116910000000.0
+SPG,0,Real Estate,large,86300000000.0
+SPH,0,Utilities,small,1150000000.0
+SQM,0,Basic Materials,large,20450000000.0
+SSTK,0,Communication Services,small,521679999.99999994
+SSYS,0,Technology,small,709270000.0
+ST,0,Technology,mid,6810000000.0
+STAA,0,Healthcare,small,1460000000.0
+STBA,0,Financial Services,small,1770000000.0
+STGW,0,Communication Services,small,1740000000.0
+STLA,0,Consumer Cyclical,large,16600000000.000002
+STM,0,Technology,large,63440000000.0
+STNG,0,Energy,mid,3330000000.0
+STZ,0,Consumer Defensive,large,25090000000.0
+SU,0,Energy,large,63600000000.0
+SUI,0,Real Estate,large,15250000000.0
+SUPN,0,Healthcare,mid,2720000000.0
+SVM,0,Basic Materials,small,2350000000.0
+SWBI,0,Industrials,small,681190000.0
+SWX,0,Utilities,mid,6580000000.0
+SYNA,0,Technology,mid,4680000000.0
+SYY,0,Consumer Defensive,large,39600000000.0
+TAC,0,Utilities,mid,4110000000.0000005
+TAK,0,Healthcare,large,49710000000.0
+TAP,0,Consumer Defensive,mid,7780000000.0
+TBPH,0,Healthcare,small,908880000.0
+TCBI,0,Financial Services,mid,4520000000.0
+TCBK,0,Financial Services,small,1720000000.0
+TD,0,Financial Services,large,198930000000.0
+TDAY,0,Communication Services,small,1220000000.0
+TDC,0,Technology,mid,3090000000.0
+TDOC,0,Healthcare,small,1510000000.0
+TECH,0,Healthcare,mid,11120000000.0
+TEO,0,Communication Services,mid,5760000000.0
+TFSL,0,Financial Services,mid,4880000000.0
+TGB,0,Basic Materials,mid,2400000000.0
+TGLS,0,Basic Materials,small,1990000000.0
+TGTX,0,Healthcare,mid,7910000000.0
+THC,0,Healthcare,large,16280000000.000002
+THFF,0,Financial Services,small,923520000.0
+TITN,0,Industrials,small,475370000.0
+TJX,0,Consumer Cyclical,large,171700000000.0
+TKC,0,Communication Services,mid,5180000000.0
+TMO,0,Healthcare,large,190650000000.0
+TMUS,0,Communication Services,large,197700000000.0
+TNET,0,Industrials,small,2290000000.0
+TOL,0,Consumer Cyclical,large,15340000000.0
+TOWN,0,Financial Services,mid,3320000000.0
+TPR,0,Consumer Cyclical,large,29500000000.0
+TREE,0,Financial Services,small,567610000.0
+TRGP,0,Energy,large,58510000000.0
+TRIP,0,Consumer Cyclical,small,1600000000.0
+TRMK,0,Financial Services,mid,2730000000.0
+TRP,0,Energy,large,73130000000.0
+TRST,0,Financial Services,small,955170000.0
+TRV,0,Financial Services,large,69610000000.0
+TRVG,0,Communication Services,small,375420000.0
+TSEM,0,Technology,large,28170000000.0
+TSLX,0,Financial Services,small,1600000000.0
+TSN,0,Consumer Defensive,large,20620000000.0
+TTC,0,Industrials,mid,9220000000.0
+TTD,0,Communication Services,mid,8640000000.0
+TWLO,0,Technology,large,29080000000.0
+TX,0,Basic Materials,mid,8720000000.0
+TXT,0,Industrials,large,15860000000.0
+UA,0,Consumer Cyclical,mid,2640000000.0
+UAL,0,Industrials,large,44180000000.0
+UAN,0,Basic Materials,small,1160000000.0
+UBS,0,Financial Services,large,150330000000.0
+UDR,0,Real Estate,large,14290000000.0
+UFPT,0,Healthcare,small,2009999999.9999998
+UGP,0,Energy,mid,5200000000.0
+UHAL,0,Industrials,large,13150000000.0
+UHS,0,Healthcare,mid,8820000000.0
+UHT,0,Real Estate,small,595120000.0
+UNFI,0,Consumer Defensive,mid,2970000000.0
+UNH,0,Healthcare,large,388590000000.0
+UNIT,0,Real Estate,mid,2690000000.0
+UNM,0,Financial Services,large,14400000000.0
+URI,0,Industrials,large,70270000000.0
+USAC,0,Energy,mid,3820000000.0
+USB,0,Financial Services,large,94880000000.0
+USPH,0,Healthcare,small,1050000000.0
+UTHR,0,Healthcare,large,23030000000.0
+UTL,0,Utilities,small,968270000.0
+UUUU,0,Energy,mid,3610000000.0
+VAC,0,Consumer Cyclical,mid,3480000000.0
+VCEL,0,Healthcare,small,2360000000.0
+VCYT,0,Healthcare,mid,4830000000.0
+VEON,0,Communication Services,mid,3580000000.0
+VFC,0,Consumer Cyclical,mid,6810000000.0
+VKTX,0,Healthcare,mid,4420000000.0
+VLGEA,0,Consumer Defensive,small,624960000.0
+VLO,0,Energy,large,77020000000.0
+VLY,0,Financial Services,mid,8160000000.0
+VMC,0,Basic Materials,large,40400000000.0
+VNDA,0,Healthcare,small,361410000.0
+VNET,0,Technology,small,2180000000.0
+VNOM,0,Energy,large,15280000000.0
+VOD,0,Communication Services,large,32150000000.0
+VRSK,0,Industrials,large,23870000000.0
+VSAT,0,Technology,mid,8460000000.000001
+VSH,0,Technology,mid,7670000000.0
+VSTM,0,Healthcare,small,332160000.0
+VTOL,0,Energy,small,1240000000.0
+VTR,0,Real Estate,large,43600000000.0
+VYX,0,Technology,small,1090000000.0
+WAL,0,Financial Services,mid,8840000000.0
+WAT,0,Healthcare,large,36760000000.0
+WBD,0,Communication Services,large,67030000000.0
+WBS,0,Financial Services,large,12250000000.0
+WCN,0,Industrials,large,42660000000.0
+WD,0,Financial Services,small,1880000000.0
+WDC,0,Technology,large,202140000000.0
+WELL,0,Real Estate,large,160480000000.0
+WEN,0,Consumer Cyclical,small,1490000000.0
+WERN,0,Industrials,mid,2560000000.0
+WINA,0,Consumer Cyclical,small,1500000000.0
+WKC,0,Energy,small,1730000000.0
+WLFC,0,Industrials,small,1580000000.0
+WLK,0,Basic Materials,mid,9820000000.0
+WLKP,0,Basic Materials,small,798670000.0
+WLY,0,Communication Services,mid,2450000000.0
+WMS,0,Industrials,large,11830000000.0
+WNC,0,Industrials,small,571470000.0
+WPC,0,Real Estate,large,16450000000.0
+WPP,0,Communication Services,mid,3520000000.0
+WRB,0,Financial Services,large,27770000000.0
+WRLD,0,Financial Services,small,955090000.0
+WSBC,0,Financial Services,mid,3730000000.0
+WSM,0,Consumer Cyclical,large,28160000000.0
+WSO,0,Industrials,large,16700000000.0
+WST,0,Healthcare,large,24790000000.0
+WVE,0,Healthcare,small,1120000000.0
+WWD,0,Industrials,large,25720000000.0
+WWW,0,Consumer Cyclical,small,1410000000.0
+WYNN,0,Consumer Cyclical,mid,10270000000.0
+XENE,0,Healthcare,mid,5770000000.0
+XHR,0,Real Estate,small,2060000000.0
+XIFR,0,Utilities,small,1130000000.0
+XRX,0,Industrials,small,432880000.0
+XYL,0,Industrials,large,27680000000.0
+XYZ,0,Technology,large,46750000000.0
+YELP,0,Communication Services,small,1320000000.0
+YEXT,0,Technology,small,445100000.0
+YUM,0,Consumer Cyclical,large,43110000000.0
+YUMC,0,Consumer Cyclical,large,14110000000.0
+ZBH,0,Healthcare,large,18010000000.0
+ZD,0,Communication Services,small,1860000000.0
+ZION,0,Financial Services,mid,10170000000.0
+ZVRA,0,Healthcare,small,799240000.0
+ZYME,0,Healthcare,small,1760000000.0

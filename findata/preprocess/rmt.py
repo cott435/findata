@@ -62,9 +62,48 @@ def fit_noise_variance(eigenvalues: np.ndarray, q: float, bw: float = 0.05) -> f
     return float(res.x)
 
 
-def mp_edge(eigenvalues: np.ndarray, q: float, bw: float = 0.1):
+def iterative_bulk_variance(eigenvalues: np.ndarray, q: float, max_iter: int = 100):
+    """Noise variance by iterative bulk-mean recursion (the preferred method).
+
+    Start with every eigenvalue in the bulk. sigma2 = mean(bulk) — for a
+    correlation matrix this is trace-preserving: (N - sum(signal)) / (N -
+    n_signal), i.e. the noise budget left after the signal eigenvalues absorb
+    their share. The MP edge from that sigma2 reclassifies eigenvalues; repeat
+    until no more eigenvalues shift to signal. Convergence is guaranteed:
+    removing large eigenvalues only lowers the bulk mean, so the edge only
+    moves down and n_signal only grows.
+
+    Unlike the KDE density fit (``fit_noise_variance``) this has no bandwidth
+    knob, no optimizer bounds to saturate, and behaves sensibly on degenerate
+    spectra (already-whitened panels -> sigma2 = 1, n_signal = 0).
+
+    Returns (sigma2, lambda_plus, n_signal).
+    """
+    w = np.sort(np.asarray(eigenvalues, dtype=float))[::-1]
+    edge_factor = (1.0 + (1.0 / q) ** 0.5) ** 2
+    n_signal = 0
+    sigma2 = float(w.mean())
+    lam_plus = sigma2 * edge_factor
+    for _ in range(max_iter):
+        new_n = min(int((w > lam_plus).sum()), len(w) - 1)  # keep a nonempty bulk
+        if new_n == n_signal:
+            break
+        n_signal = new_n
+        sigma2 = float(w[n_signal:].mean())
+        lam_plus = sigma2 * edge_factor
+    return sigma2, lam_plus, n_signal
+
+
+def mp_edge(eigenvalues: np.ndarray, q: float, bw: float = 0.1, method: str = "iterative"):
     """Return (lambda_plus, n_signal, noise_var): the upper bulk edge, the count
-    of eigenvalues above it, and the fitted noise variance."""
+    of eigenvalues above it, and the fitted noise variance.
+
+    method="iterative" (default): recursive bulk-mean, see iterative_bulk_variance.
+    method="kde": legacy density-matching fit (``bw`` only applies here).
+    """
+    if method == "iterative":
+        var, e_max, n_signal = iterative_bulk_variance(eigenvalues, q)
+        return e_max, n_signal, var
     var = fit_noise_variance(eigenvalues, q, bw)
     _, _, _, e_max = mp_pdf(var, q)
     n_signal = int((np.asarray(eigenvalues) > e_max).sum())

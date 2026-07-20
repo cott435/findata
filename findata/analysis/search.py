@@ -46,17 +46,19 @@ import pandas as pd
 from findata.analysis.rank_ic import RankICAnalysis
 from findata.configs import EXPERIMENT_DIR
 from findata.preprocess import rmt
-from findata.preprocess.base import date_values
 from findata.preprocess.pipeline import FeaturePipeline, PipelineState
 from findata.preprocess.transforms import (STEP_REGISTRY, ProcessingConfig,
                                            ProcessingPipeline, train_row_mask)
 
 
-def default_variants() -> list[ProcessingConfig]:
-    """{none, kalman, ssa} x {none, pca, zca, hpca} grid + market-mode-removal chains."""
+def default_variants(include_modes: bool = False) -> list[ProcessingConfig]:
+    """{none, kalman, ssa} x {none, pca, zca, hpca} grid + market-mode-removal chains.
+
+    ``include_modes=True`` adds the ticker-space mode-decomposition variants —
+    those need ``ticker_meta`` passed to ProcessingSearch (sector labels)."""
     grid = [
         ProcessingConfig(f"{t or 'raw'}+{d or 'none'}", temporal=t, decorrelation=d)
-        for t in (None, "kalman", "ssa")
+        for t in (None, "kalman")
         for d in (None, "pca", "zca", "hpca")
     ]
     market_neutral = [
@@ -70,6 +72,14 @@ def default_variants() -> list[ProcessingConfig]:
                          steps=[("signal_keep", {}), ("demean", {}), ("standardize", {}),
                                 ("hpca", {})]),
     ]
+    if include_modes:
+        market_neutral += [
+            ProcessingConfig("modes_resid", steps=[("modes", {})]),
+            ProcessingConfig("modes_resid+comp",
+                             steps=[("modes", {"output": "residual+components"})]),
+            ProcessingConfig("modes_resid+white",
+                             steps=[("modes", {}), ("cs_whiten", {})]),
+        ]
     return grid + market_neutral
 
 
@@ -87,9 +97,11 @@ class ProcessingSearch:
                  horizons=(1, 5, 10, 21, 63), groups=None, feature_set: str = "med",
                  min_assets: int = 10, embargo: bool = True,
                  keep_panels=("raw+none", "demean"),
-                 output_dir: str | Path | None = None, verbose: bool = True):
+                 output_dir: str | Path | None = None, verbose: bool = True,
+                 ticker_meta=None):
         self.data = data
         self.splits = splits
+        self.ticker_meta = ticker_meta
         self.variants = list(variants) if variants is not None else list(DEFAULT_VARIANTS)
         names = [v.name for v in self.variants]
         if len(set(names)) != len(names):
@@ -146,6 +158,11 @@ class ProcessingSearch:
             for i in range(start, len(steps)):
                 step_name, params = steps[i]
                 transform = STEP_REGISTRY[step_name](**params)
+                if transform.needs_meta and self.ticker_meta is None:
+                    raise ValueError(f"Variant {config.name!r} step {step_name!r} needs "
+                                     "ticker metadata — pass ticker_meta=ProcessingSearch(...)")
+                if self.ticker_meta is not None:
+                    transform.bind_meta(self.ticker_meta)
                 transform.fit(panel[self._train_mask])
                 panel = transform.transform(panel)
                 fitted.append(transform)

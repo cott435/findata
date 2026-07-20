@@ -22,6 +22,7 @@ class YahooFinance:
             tickers = [tickers]
         self.tickers = [t.replace(".", "-") for t in tickers]
         self.t = Ticker(self.tickers, asynchronous=True)
+        self.rerequest = 0
 
     @staticmethod
     def find_liquidity_start(df, window=20, min_volume=1000, max_zero_frac=0.05):
@@ -193,7 +194,13 @@ class YahooFinance:
                     "info": t_info,
                     "prices": candles,
                 }
-
+        except KeyError as e:
+            if self.rerequest >10 or e.args[0] == 'daily':
+                return {ticker: {"ticker": ticker, "info": {"error": str(e)}} for ticker in self.tickers}
+            print("HTTP error getting data, requesting again after 10 seconds")
+            self.rerequest += 1
+            await asyncio.sleep(10)
+            return await self._request_ticker_financials(start=start)
         except Exception as e:
             logger.exception('YahooFinance: error fetching bulk data: %s', e)
             return {ticker: {"ticker": ticker, "info": {"error": str(e)}} for ticker in self.tickers}

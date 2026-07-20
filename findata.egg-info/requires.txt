@@ -8,4 +8,6 @@ seaborn
 matplotlib
 scikit-learn
 holoviews>=1.23.1
+panel
+bokeh
 statsmodels>=0.14.6
