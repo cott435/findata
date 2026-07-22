@@ -33,17 +33,31 @@ correlation, data-driven clustering vs the trend/vol/momentum/volume taxonomy,
 ARI) on all three feature representations, then compares them: **where do the
 feature correlations differ once the market/sector modes are stripped?**
 
+It then takes two closer looks at the residual:
+- **residual vs components** — using `ModeDecomposer(output="residual+components")`
+  it correlates each residual feature with the global- and sector-**component**
+  columns (`{feat}_gmode`, `{feat}_smode`). A residual is orthogonal to its *own*
+  component by construction, so any surviving correlation is with a *different*
+  feature's mode channel — leftover shared market/sector structure.
+- **surviving redundancy** — the top-N feature pairs (`--top-pairs`, default 10)
+  that stay highly correlated after global+sector removal (the intrinsic
+  within-name redundancy the modes never explained), plus a count of strong
+  pairs (`|corr| ≥ --corr-threshold`) that survive vs get killed.
+
 Outputs (`feature_vs_market/`): a full CSA artifact set per representation
-(`base/`, `global_removed/`, `sector_removed/`), `representation_summary.csv`
-(n_signal, top-eig share, within/across correlation, cluster ARI per rep), delta
-heatmaps (`delta_base_minus_global.png`, …) and the most-changed feature pairs
-(`top_changed_*.csv`). If feature correlation is intrinsic (RSI≈CCI on the same
-name), the three panels look nearly identical; if it is market-driven, removing
-the modes collapses it.
+(`base/`, `global_removed/`, `sector_removed/`), `representation_summary.csv`,
+delta heatmaps (`delta_*.png`) + most-changed pairs (`top_changed_*.csv`);
+`residual_vs_global_components.png` / `residual_vs_sector_components.png` +
+`residual_component_leakage.csv` (per feature: strongest |corr| with any
+global/sector component); and `surviving_pairs.png` / `surviving_pairs.csv`
+(base vs residual |corr| for the still-correlated pairs). If feature correlation
+is intrinsic (RSI≈CCI on the same name), the three panels look nearly identical
+and the surviving pairs keep most of their base |corr|; if it is market-driven,
+removing the modes collapses it.
 
 ```bash
-.venv/bin/python scripts/feature_structure/feature_correlation_structure.py
 .venv/bin/python scripts/feature_structure/feature_correlation_structure.py --tickers 200
+.venv/bin/python scripts/feature_structure/feature_correlation_structure.py --top-pairs 15
 ```
 
 ### `mp_information_search.py`
@@ -95,16 +109,28 @@ series, forward-summed over each horizon. A feature whose |ICIR| is high on
 (systematic timing); one whose |ICIR| survives on the residual returns is
 genuine **cross-sectional selection**.
 
-Outputs (`rank_ic_decomposition/`): a per-representation subdir (`base/`,
-`global_removed/`, `sector_removed/`) with `ic_summary_H*.csv` + cumulative-IC
-plots; `rank_ic_summary.csv` (representation × horizon × feature), the ICIR
-pivot at the plot horizon, `headline_top5_icir.csv`, and the two comparison
-figures (`icir_comparison_H*.png` grouped bars, `ic_attribution_H*.png` base vs
-sector-neutral scatter — points below the diagonal are market/sector-driven).
+An exploratory **sector-level** rank IC also runs (`--no-sector` to skip):
+features and returns are equal-weight-aggregated to the ~11 sectors and the
+rank IC is taken across sectors — does the feature predict **sector rotation**?
+With only ~11 names the daily IC is noisy (a rough look, not a verdict).
+
+Outputs (`rank_ic_decomposition/`):
+- `rank_ic_summary.xlsx` — the readable deliverable, **split by sheet**:
+  `headline_top5`, `headline_full`, one `ticker_<rep>` sheet per representation
+  (feature × horizon, ICIR + t-stat), a `pivot_icir_H*` sheet per plot horizon,
+  and `sector_rank_ic` / `sector_headline`.
+- Per plot horizon (`--plot-horizons`, up to 3): `icir_comparison_H*.png`
+  (grouped bars) and `ic_attribution_H*.png` (base vs sector-neutral scatter —
+  points below the diagonal are market/sector-driven); plus
+  `top5_icir_vs_horizon.png` (strength vs horizon per representation).
+- Per-representation subdirs (`base/`, `global_removed/`, `sector_removed/`) and
+  `sector/` with cumulative-IC plots + the sector rotation bars; flat
+  `rank_ic_summary.csv` for programmatic use.
 
 ```bash
 .venv/bin/python scripts/feature_structure/rank_ic_decomposition.py --tickers 250
-.venv/bin/python scripts/feature_structure/rank_ic_decomposition.py --horizons 5 21 --plot-horizon 21
+.venv/bin/python scripts/feature_structure/rank_ic_decomposition.py \
+    --horizons 1 5 10 21 63 --plot-horizons 1 10 63
 ```
 
 ## Relationship to market_structure q7

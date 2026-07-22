@@ -27,7 +27,13 @@ Caveats:
     fitted stats and come back NaN at transform time (with a warning) — don't
     combine ticker-axis modes with held-out tickers;
   - dates with fewer than ``min_names`` present tickers pass through
-    standardized-only (components 0): a thin cross-section has no usable mode.
+    standardized-only (components 0): a thin cross-section has no usable mode;
+  - partial cross-sections (some tickers present, some missing, on an
+    otherwise-usable date) get a missing-mass correction: the same-date
+    projection is rescaled by sqrt(available / full) weight-squared mass so a
+    thin day isn't systematically shrunk — applied identically in
+    ModeDecomposer and CrossSectionWhitener via the shared
+    ``_mass_corrected_projection`` helper.
 """
 from __future__ import annotations
 
@@ -51,6 +57,29 @@ def _column_panel(series: pd.Series, tickers) -> pd.DataFrame:
 def _guarded_std(values: np.ndarray) -> np.ndarray:
     std = values.std(axis=0, ddof=0)
     return np.where(std > 1e-12, std, 1.0)
+
+
+def _mass_corrected_projection(X0: np.ndarray, M: np.ndarray, W: np.ndarray) -> np.ndarray:
+    """X0 @ W with a missing-mass correction.
+
+    Each output column j is a linear combination of all input tickers with
+    weights W[:, j]; on a date where some tickers are missing (zero-filled in
+    X0), the raw dot product only sums over the PRESENT ones, so it is
+    systematically too small. Rescale by sqrt(available weight-squared mass /
+    full weight-squared mass) to approximate what the projection would be with
+    the full cross-section present. Columns whose available mass is
+    negligible (``usable`` False) are zeroed rather than blown up.
+
+    Shared by ModeDecomposer (W is N x k, k global/sector loading vectors) and
+    CrossSectionWhitener (W is the N x N whitening matrix) — the math is
+    identical regardless of how many output columns W has.
+    """
+    raw = X0 @ W
+    full = (W ** 2).sum(axis=0)
+    avail = M.astype(float) @ (W ** 2)
+    mass = np.sqrt(np.clip(avail / np.where(full > 0, full, 1.0), 0.0, 1.0))
+    usable = mass > 1e-6
+    return np.where(usable, raw / np.where(usable, mass, 1.0), 0.0)
 
 
 def _stack_wides(frames: dict[str, pd.DataFrame], like_index: pd.MultiIndex) -> pd.DataFrame:
@@ -196,15 +225,10 @@ class ModeDecomposer(PanelTransform, _TickerAxisMixin):
 
     @staticmethod
     def _stage_component(X0: np.ndarray, M: np.ndarray, W, s, B) -> np.ndarray:
-        """Component matrix from same-date scores with a missing-mass correction:
-        a partial cross-section only carries part of the loading vector, so the
-        raw projection is rescaled by sqrt(available weight mass / full mass)."""
-        raw = X0 @ W
-        full = (W ** 2).sum(axis=0)
-        avail = M.astype(float) @ (W ** 2)
-        mass = np.sqrt(np.clip(avail / np.where(full > 0, full, 1.0), 0.0, 1.0))
-        usable = mass > 1e-6
-        scores = np.where(usable, raw / (s * np.where(usable, mass, 1.0)), 0.0)
+        """Component matrix from same-date scores with a missing-mass correction
+        (see ``_mass_corrected_projection``), un-scaled to unit-variance scores
+        and re-expanded into ticker space via the fitted betas."""
+        scores = _mass_corrected_projection(X0, M, W) / s
         return scores @ B.T
 
     # -- fit -------------------------------------------------------------------
@@ -356,7 +380,11 @@ class CrossSectionWhitener(PanelTransform, _TickerAxisMixin):
     are stripped, whitening equalizes what correlation structure remains among
     the residuals ("whitening after denoising"). Same pseudo-inverse policy as
     the feature-space ZCAWhitener: eigendirections below rcond * lam_max are
-    zeroed, never inflated.
+    zeroed, never inflated. Transform applies the same missing-mass correction
+    as ModeDecomposer (``_mass_corrected_projection``): W here is the full N x N
+    whitening matrix rather than a k-dimensional loading matrix, but the
+    per-output-column rescale is identical — a missing neighbor ticker on a
+    date no longer biases every other ticker's whitened value that day.
     """
     causal = True
 
@@ -397,7 +425,7 @@ class CrossSectionWhitener(PanelTransform, _TickerAxisMixin):
             st = self.state_[col]
             dates, M, Xs, X0, unseen = self._standardized_any(X, col, st["mu"], st["sd"])
             self._warn_unseen(unseen)
-            out = X0 @ st["W"]
+            out = _mass_corrected_projection(X0, M, st["W"])
             if self.renormalize:
                 out = out / st["out_sd"]
             thin = M.sum(axis=1) < self.min_names

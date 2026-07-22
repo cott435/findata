@@ -1,0 +1,13 @@
+feature_i,feature_j,group_i,group_j,corr_base,corr_residual,retained_frac
+volatility__vol_park100,volatility__vol_rs100,volatility,volatility,0.9942659756986106,0.9459863949708769,0.9514419864425003
+trend__rel_26,trend__rel_52,trend,trend,0.9368205148343358,0.9348669886284193,0.9979147273410618
+trend__rel_52,trend__velocity_12/26,trend,trend,0.9380223578240056,0.9320953797357563,0.9936814106414281
+trend__rel_12,trend__rel_26,trend,trend,0.9216446555683753,0.9226787647686227,1.0011220259283222
+trend__rel_104,trend__rel_52,trend,trend,0.9376885561745558,0.9219453726504255,0.9832106476927083
+volatility__vol_park20,volatility__vol_rs20,volatility,volatility,0.9854462049186066,0.9111360083618051,0.9245923357501395
+trend__rel_104,trend__velocity_26/52,trend,trend,0.9248252061681532,0.9027357838744231,0.9761150300117212
+momentum__cci_short_velocity,momentum__willr_short_velocity,momentum,momentum,0.9280427076799079,0.9005382222954795,0.9703629098566066
+trend__acceleration_52/104,trend__velocity_12/26,trend,trend,0.8933466688723062,0.897229664791299,1.0043465723378073
+momentum__cci_short_acceleration,momentum__willr_short_acceleration,momentum,momentum,0.9129792360099457,0.8823652418914445,0.9664680280656813
+volatility__vol_park7,volatility__vol_rs7,volatility,volatility,0.9724621356619856,0.8811475394527634,0.9060995869550628
+momentum__cci_long_raw,momentum__willr_long_raw,momentum,momentum,0.9091097275445575,0.8810662678147771,0.9691528328428254
