@@ -61,8 +61,8 @@ def main():
         'volume': None,
         'rsi': 14,                # single period
         'ema_close': [12, 26],    # list of periods
-        'bollinger': None,        # group name, default period -> bb_middle/upper/lower
-        'stoch_k': None,          # single column from a group, default period
+        'bollinger': None,        # calculator name -> bb_middle/upper/lower
+        'stochastic': None,       # single output item, default period
         'obv': None,              # cumulative, periodless (stored as period 0)
     }
     banner(f'3a. get_items({items}, wide=True)')
@@ -76,13 +76,13 @@ def main():
     banner("4a. if_missing='raise' -- request rsi period 25 (not stored)")
     db.if_missing = 'raise'
     try:
-        db.get_items(ticker, {'rsi': 26})
+        db.get_items(ticker, {'rsi': 25})
     except MissingItemsError as e:
         print(f'raised as expected -> {e}')
 
     banner("4b. if_missing='add' -- same request computes, stores, and returns it")
     db.if_missing = 'add'
-    added = db.get_items(ticker, {'rsi': 28}, wide=True)
+    added = db.get_items(ticker, {'rsi': 25}, wide=True)
     print(added.tail())
 
     banner("4c. rsi 25 is now stored -- 'raise' mode succeeds on a second request")

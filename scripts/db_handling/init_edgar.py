@@ -27,6 +27,9 @@ def main(use_all=False):
     parser = argparse.ArgumentParser(description='Cold-start EDGAR filing + financials data.')
     parser.add_argument('--tickers', nargs='+', default=DEFAULT_TICKERS, help='Ticker symbols to seed.')
     parser.add_argument('--db-path', default=None, help='SQLite file (default: data dir from configs).')
+    parser.add_argument('--data', choices=('full', 'numeric'), default='full',
+                        help="'full' = text sections + facts + Form 4; "
+                             "'numeric' = XBRL facts + Form 4 only (no text downloads).")
     parser.add_argument('--extra', action='store_true', help='Also parse the non-essential sections.')
     parser.add_argument('--force', action='store_true', help='Refetch even if already seeded.')
     parser.add_argument('--min-date', default=None, help='Oldest filing date to pull (YYYY-MM-DD).')
@@ -36,10 +39,8 @@ def main(use_all=False):
                         help='Also store de-cumulated single-quarter cash flow rows.')
     args = parser.parse_args()
     setup_logging('init_edgar.log')
-    args.min_date = '2013-01-01'
     db = DBManager(args.db_path)
-    tickers = TickerSampler(use_russell3000=False).tickers if use_all else [t.upper() for t in args.tickers]
-    tickers = ['AAPL', 'MSFT']
+    tickers = TickerSampler(use_all=True).tickers if use_all else [t.upper() for t in args.tickers]
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['edgar_seeded'].fillna(False).astype(bool)])
@@ -54,13 +55,9 @@ def main(use_all=False):
         print('\nNothing to seed.')
         return
 
-    pipeline = EdgarPipeline(db=db, parse_extra_data=args.extra,
+    pipeline = EdgarPipeline(db=db, parse_extra_data=args.extra, mode=args.data,
                              max_concurrency=args.concurrency, requests_per_second=args.rps,
                              decumulate_cashflow=args.decumulate_cashflow)
-
-    from findata.database.edgar_ import Company, parse_financials
-    facts = pipeline._fetch_facts_frame(Company('AAPL'))
-    data = parse_financials(facts, 'AAPL')
 
     counts = pipeline.run(todo, force=args.force, min_date=args.min_date)
 
@@ -69,4 +66,4 @@ def main(use_all=False):
 
 
 if __name__ == '__main__':
-    main(use_all=True)
+    main()

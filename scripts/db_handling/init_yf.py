@@ -1,12 +1,19 @@
-"""YF cold-start: bulk-download price history for a ticker list, compute the
-full EMA/indicator history, and seed the database.
+"""YF cold-start: bulk-download price history for a ticker list and seed the
+database.
 
-Tickers already seeded are skipped unless --force is given; for those the
-last bar stored in the DB is printed next to the latest bar Yahoo has, so
-staleness is visible at a glance (run update_daily to refresh them).
+Two levels: ``--level full`` (default) also computes and stores the complete
+default technical history; ``--level prices`` stores bars only -- indicators
+then compute on the fly when first requested (persisting per SAVE_POLICY),
+or in bulk via scripts/db_handling/seed_technicals.py.
+
+Tickers already seeded are skipped unless --force is given (promote
+prices-only tickers with seed_technicals, refresh stale ones with
+update_daily); for skipped tickers the last stored bar is printed next to
+the latest bar Yahoo has, so staleness is visible at a glance.
 
 Run from the project root:
-    python -m scripts.init_yf --tickers AAPL MSFT GOOGL [--force] [--db-path data/stock.db]
+    python -m scripts.db_handling.init_yf --tickers AAPL MSFT GOOGL
+        [--level prices|full] [--force] [--use-all] [--db-path data/stock.db]
 """
 
 import argparse
@@ -27,7 +34,7 @@ DEFAULT_TICKERS = TickerSampler().sample(800, 123)
 
 def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:
     """Last stored bar vs latest bar Yahoo has, for skipped tickers."""
-    report = (db.get_ticker_meta(tickers)[['last_price_date']]
+    report = (db.get_ticker_meta(tickers)[['last_price_date', 'technicals_seeded']]
               .rename(columns={'last_price_date': 'db_last_date'}))
     try:
         recent = Ticker(tickers).history(interval='1d', period='5d').reset_index()
@@ -40,19 +47,24 @@ def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:
     return report
 
 
-def main(use_all=False):
+def main():
     parser = argparse.ArgumentParser(description='Cold-start YF price data.')
     parser.add_argument('--tickers', nargs='+', default=DEFAULT_TICKERS,
                         help='Ticker symbols to seed.')
+    parser.add_argument('--level', choices=('prices', 'full'), default='full',
+                        help="'full' stores prices + the default technical history; "
+                             "'prices' stores bars only (indicators compute on the fly).")
     parser.add_argument('--db-path', default=None,
                         help='SQLite file (default: data dir from configs).')
     parser.add_argument('--force', action='store_true',
                         help='Seed tickers even if already in the database.')
+    parser.add_argument('--use-all', action='store_true',
+                        help='Seed the whole sampler universe instead of --tickers.')
     args = parser.parse_args()
     setup_logging('init_yf.log')
 
     db = DBManager(args.db_path)
-    tickers = TickerSampler().tickers if use_all else [t.upper() for t in args.tickers]
+    tickers = TickerSampler().tickers if args.use_all else [t.upper() for t in args.tickers]
 
     meta = db.get_ticker_meta(tickers)
     seeded = set(meta.index[meta['yf_seeded'].fillna(False).astype(bool)])
@@ -60,25 +72,28 @@ def main(use_all=False):
     todo = [t for t in tickers if t not in skipped]
 
     if skipped:
-        print('\nAlready seeded -- skipped (use --force to re-seed, update_daily to refresh):')
+        print('\nAlready seeded -- skipped (use --force to re-seed, seed_technicals '
+              'to promote prices-only, update_daily to refresh):')
+        print(skip_report(db, skipped))
 
     if not todo:
         print('\nNothing to seed.')
         return
 
     max_tickers = 30
+    compute_technicals = args.level == 'full'
 
     for i in range(0, len(todo), max_tickers):
         subset = todo[i:i + max_tickers]
         data = YahooFinance(subset).request_ticker_financials(start='1/1/2005')
         if 'prices' not in data:
-            logger.error('Download failed, , nothing inserted.')
+            logger.error('Download failed for %s, nothing inserted.', subset)
             return
-        counts = db.add_ticker_data(data['info'], data['prices'])
-
-        print(f'\nRows inserted: {counts}')
+        counts = db.add_ticker_data(data['info'], data['prices'],
+                                    compute_technicals=compute_technicals)
+        print(f'\nRows written: {counts}')
     print(db.ticker_summary().loc[[t for t in todo if t in db.get_ticker_meta().index]])
 
 
 if __name__ == '__main__':
-    main(use_all=False)
+    main()
