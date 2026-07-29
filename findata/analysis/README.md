@@ -28,6 +28,7 @@ transform_explorer.py   TransformExplorer — transform/mode reward-path browser
 prediction_explorer.py  PredictionExplorer — forecast vs realized quantiles
 static.py               matplotlib savers (layers, modes, fan charts,
                         prediction bands, calibration, median-vs-realized)
+workbench/              WorkbenchApp — the 4-tab analysis workbench (see below)
 ```
 
 All explorers follow the same serving contract: widgets and DynamicMaps are
@@ -73,3 +74,31 @@ PredictionExplorer(preds).serve()
 The static savers (`save_fan_chart`, `save_prediction_bands`,
 `save_calibration`, `save_pred_scatter`) take the same frame, so one parquet
 feeds both the PNG report and the live app.
+
+### workbench/ — the analysis workbench
+
+A four-tab Panel app for wide-scale analysis, launched via
+`scripts/workbench.py` (`--universe-n 150 | --tickers ...`, `--start`,
+`--port`). One shared read-only `WorkbenchData` service (bulk DB reads +
+caches for panels, mode decompositions, and rank-IC results) backs every
+session; each browser session builds its own widgets/DynamicMaps, per the
+serving contract above.
+
+| Module | Tab / role |
+|---|---|
+| `data.py` | `WorkbenchData` — panels, `decompose`, `fwd_ic`, `breadth`, `residual_movers`, `spectrum` (cached, timed) |
+| `selectors.py` | `IndicatorSelector` / `SingleSelector` — hierarchical family → calculator → outputs → periods pickers from `registry_tree()`; keys are `rsi_14` / `fund:earnings_yield` |
+| `presets.py` | `PRESETS` — named default views (Momentum / Trend / Volume-Flow / Volatility / Fundamentals) rendered as buttons; extend by editing the dict |
+| `panels.py` | element builders: `candlestick`, `series_overlay`, `mp_spectrum_elements`, `heatmap`, `cumulative_ic`, `table` |
+| `stock_tab.py` | **Stock** — candlestick + overlays, dynamic indicator panels; per-panel `raw` / `modes` / `modes+resid` transform view; structural changes rebuild the layout (zoom restored via `RestoringSync`) |
+| `compare_tab.py` | **Compare** — one indicator across tickers: normalized levels, spread + percentile strip, cumulative rank-IC / ICIR table / IC-decay |
+| `pca_tab.py` | **PCA/RMT** — eigenvalue density vs Marchenko-Pastur, variance bars, mode series, sector-sorted loadings |
+| `market_tab.py` | **Market** — sector×horizon return heatmap, breadth + cumulative modes, "interesting residuals" (names moving on their own) |
+
+```bash
+python -m scripts.workbench --universe-n 150
+```
+
+Adding an indicator to a calculator (see
+`findata/preprocess/calculators/README.md`) makes it appear in every
+workbench selector automatically — the pickers are driven by the registry.

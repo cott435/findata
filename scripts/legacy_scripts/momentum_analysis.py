@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from findata.configs import EXPERIMENT_DIR
-from findata.database.technical_calculators import INDICATOR_FUNCS, ema
+from findata.preprocess.calculators.technical import INDICATOR_FUNCS, ema
 
 INDICATOR = 'rsi'
 OUTPUT_DIR = EXPERIMENT_DIR / "momentum_analysis" / INDICATOR

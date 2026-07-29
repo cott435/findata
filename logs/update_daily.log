@@ -1,0 +1,91 @@
+2026-07-22 20:33:24,181 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/update_daily.log
+2026-07-22 20:33:24,257 INFO    scripts.update_daily | Updating 3 ticker(s); stalest last_price_date=2026-06-26, fetching from 2026-06-19
+2026-07-22 20:33:24,999 INFO    findata.database.yf | Requesting Yahoo Finance data for 3 ticker(s) from 2026-06-19
+2026-07-22 20:33:25,492 INFO    scripts.update_daily | AA: 17 new daily bar(s) after 2026-06-26
+2026-07-22 20:33:25,492 INFO    scripts.update_daily | AAON: 5 new daily bar(s) after 2026-07-15
+2026-07-22 20:33:25,492 INFO    scripts.update_daily | A: 5 new daily bar(s) after 2026-07-15
+2026-07-22 20:33:25,492 INFO    scripts.update_daily | Dry run -- nothing written.
+2026-07-22 20:33:25,496 INFO    scripts.update_daily | No edgar-seeded tickers to update.
+2026-07-22 21:20:22,575 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/update_daily.log
+2026-07-22 21:20:22,584 WARNING scripts.update_daily | Not yf-seeded, skipping: ['WING'] (run init_yf first)
+2026-07-22 21:20:22,586 INFO    scripts.update_daily | Updating 3 ticker(s); stalest last_price_date=2026-06-26, fetching from 2026-06-19
+2026-07-22 21:20:23,230 INFO    findata.database.yf | Requesting Yahoo Finance data for 3 ticker(s) from 2026-06-19
+2026-07-22 21:20:23,750 INFO    scripts.update_daily | AA: 17 new daily bar(s) after 2026-06-26
+2026-07-22 21:20:23,751 INFO    scripts.update_daily | AAON: 5 new daily bar(s) after 2026-07-15
+2026-07-22 21:20:23,751 INFO    scripts.update_daily | A: 5 new daily bar(s) after 2026-07-15
+2026-07-22 21:20:23,751 INFO    scripts.update_daily | Dry run -- nothing written.
+2026-07-22 21:20:23,756 INFO    scripts.update_daily | No edgar-seeded tickers to update.
+2026-07-22 21:22:40,385 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/update_daily.log
+2026-07-22 21:22:40,396 INFO    scripts.update_daily | Updating 856 ticker(s); stalest last_price_date=2026-06-26, fetching from 2026-06-19
+2026-07-22 21:22:41,003 INFO    findata.database.yf | Requesting Yahoo Finance data for 856 ticker(s) from 2026-06-19
+2026-07-22 21:23:26,949 INFO    findata.database.yf | Liquidity filter EEX: dropping 1 rows (before None), 1 zero-volume
+2026-07-22 21:23:27,104 INFO    findata.database.yf | Liquidity filter total: 1 daily rows dropped (1 zero-volume)
+2026-07-22 21:23:27,416 WARNING findata.database.yf | Found 65 violations: MultiIndex([('daily',  'AAT', 2026-07-22),
+            ('daily', 'ABBV', 2026-07-22),
+            ('daily',  'AJG', 2026-07-22),
+            ('daily',   'AN', 2026-07-22),
+            ('daily',  'AON', 2026-07-22),
+            ('daily',  'APO', 2026-07-22),
+            ('daily',  'AQN', 2026-07-22),
+            ('daily',  'ASA', 2026-07-22),
+            ('daily',  'ASB', 2026-07-22),
+            ('daily', 'AVNT', 2026-07-22),
+            ('daily', 'BANC', 2026-07-22),
+            ('daily',  'BCC', 2026-07-22),
+            ('daily',  'BKD', 2026-07-22),
+            ('daily',  'BMA', 2026-07-22),
+            ('daily',  'BMO', 2026-07-22),
+            ('daily',  'BNY', 2026-07-22),
+            ('daily',  'BTG', 2026-07-22),
+            ('daily',  'BTI', 2026-07-22),
+            ('daily', 'BWXT', 2026-07-22),
+            ('daily',  'BXC', 2026-07-22),
+            ('daily', 'CARS', 2026-07-22),
+            ('daily', 'CGAU', 2026-07-22),
+            ('daily', 'CHCT', 2026-07-22),
+            ('daily',  'CHT', 2026-07-22),
+            ('daily', 'CMBT', 2026-07-22),
+            ('daily',  'CNA', 2026-07-22),
+            ('daily',  'CNH', 2026-07-22),
+            ('daily',  'CSW', 2026-07-22),
+            ('daily', 'CVEO', 2026-07-22),
+            ('daily',  'CYD', 2026-07-22),
+            ('daily', 'DCOM', 2026-07-22),
+            ('daily',  'DEA', 2026-07-22),
+            ('daily',  'DLB', 2026-07-22),
+            ('daily',  'DRD', 2026-07-22),
+            ('daily',  'DVA', 2026-07-22),
+            ('daily',  'EGP', 2026-07-22),
+            ('daily',  'FMS', 2026-07-22),
+            ('daily',   'FN', 2026-07-22),
+            ('daily',  'FPI', 2026-07-22),
+            ('daily', 'GDDY', 2026-07-22),
+            ('daily', 'GNRC', 2026-07-22),
+            ('daily',  'GPI', 2026-07-22),
+            ('daily', 'GRMN', 2026-07-22),
+            ('daily',  'GTN', 2026-07-22),
+            ('daily', 'HRTG', 2026-07-22),
+            ('daily', 'HUBS', 2026-07-22),
+            ('daily', 'INVX', 2026-07-22),
+            ('daily',   'IX', 2026-07-22),
+            ('daily',    'L', 2026-07-22),
+            ('daily',  'NMM', 2026-07-22),
+            ('daily',  'NOA', 2026-07-22),
+            ('daily', 'NPKI', 2026-07-22),
+            ('daily',  'PHG', 2026-07-22),
+            ('daily',  'PNR', 2026-07-22),
+            ('daily',    'R', 2026-07-22),
+            ('daily',   'SA', 2026-07-22),
+            ('daily',  'SLG', 2026-07-22),
+            ('daily',  'SMP', 2026-07-22),
+            ('daily',  'TRP', 2026-07-22),
+            ('daily',  'TTC', 2026-07-22),
+            ('daily', 'TWLO', 2026-07-22),
+            ('daily',  'UHT', 2026-07-22),
+            ('daily',  'WAL', 2026-07-22),
+            ('daily', 'WLKP', 2026-07-22),
+            ('daily',  'XYZ', 2026-07-22)],
+           names=['interval', 'ticker', 'date'])
+2026-07-22 21:23:27,454 INFO    findata.database.yf | Skipping 1 tickers due to invalid yahoo response: ['error']
+2026-07-22 21:26:21,961 ERROR   scripts.update_daily | Price download failed, aborting YF update.
+2026-07-22 21:26:21,971 INFO    scripts.update_daily | No edgar-seeded tickers to update.

@@ -24,8 +24,9 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import (MinMaxScaler, PowerTransformer, QuantileTransformer,
                                    RobustScaler, StandardScaler)
 
-from findata.configs import DATA_MAP, TECHNICAL_WINDOWS
-from findata.database.technical_calculators import INDICATOR_FUNCS, ema
+from findata.preprocess.calculators.base import Calculator
+from findata.preprocess.calculators.technical import (DATA_MAP, INDICATOR_FUNCS,
+                                                      TECHNICAL_WINDOWS, ema)
 
 # bare indicator name -> default-period column name, e.g. 'rsi' -> 'rsi_14'
 PERIOD_MAP = {name: TECHNICAL_WINDOWS[base] for base, names in DATA_MAP.items() for name in names}
@@ -97,7 +98,7 @@ class ScaleRule:
 # FeatureGroup
 # ---------------------------------------------------------------------------
 
-class FeatureGroup:
+class FeatureGroup(Calculator):
     """One feature family (momentum, trend, ...): feature engineering only.
 
     Contract for :meth:`engineer`:
@@ -106,9 +107,15 @@ class FeatureGroup:
         burn-in NaNs are fine (the pipeline drops them)
       - pure: never mutate ``data`` (pandas-3 copy-on-write is on)
       - anything that shifts/rolls must run per ticker (use :func:`per_ticker`)
+
+    Feature groups share the :class:`Calculator` abstraction (family
+    ``'feature'``); :meth:`calculate` aliases :meth:`engineer` so the uniform
+    interface and its timing/logging apply, while ``engineer`` stays the
+    public verb inside the pipeline.
     """
 
     name: str = None                 # taxonomy prefix, e.g. "momentum"
+    family = "feature"
     default_scaler: str = "standard"
     default_arcsinh: bool = False
 
@@ -120,6 +127,13 @@ class FeatureGroup:
 
     def engineer(self, data: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError("Subclasses must implement engineer()")
+
+    def calculate(self, data: pd.DataFrame, **params) -> pd.DataFrame:
+        return self.engineer(data)
+
+    @property
+    def group(self) -> str:
+        return f"feature.{self.name}" if self.name else "feature"
 
     def scale_rules(self, columns: Iterable[str]) -> list[ScaleRule]:
         """Default: one rule covering every engineered column."""

@@ -1,0 +1,17 @@
+2026-07-22 22:19:53,994 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/workbench.log
+2026-07-22 22:19:55,349 INFO    scripts.workbench | Workbench universe: 50 tickers, start=2017-01-01
+2026-07-22 22:19:55,354 INFO    bokeh.server.server | Starting Bokeh server version 3.9.1 (running on Tornado 6.5.7)
+2026-07-22 22:19:55,354 INFO    bokeh.server.tornado | User authentication hooks NOT provided (default user enabled)
+2026-07-22 22:20:06,542 INFO    findata.analysis.plotting.workbench.app | New workbench session (50 tickers)
+2026-07-22 22:20:06,820 INFO    findata.database.db_manager | get_items (50 tickers, 1 cols) done in 0.15s
+2026-07-22 22:20:06,827 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.item_panel done in 0.16s
+2026-07-22 22:20:06,936 INFO    findata.database.db_manager | get_items (50 tickers, 0 cols) done in 0.11s
+2026-07-22 22:20:06,943 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.close_panel done in 0.11s
+2026-07-22 22:20:06,992 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.33s
+2026-07-22 22:20:07,465 INFO    findata.database.db_manager | get_items (50 tickers, 2 cols) done in 0.18s
+2026-07-22 22:20:07,472 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.breadth done in 0.18s
+2026-07-22 22:20:07,709 WARNING bokeh.core.validation.check | W-1005 (FIXED_SIZING_MODE): 'fixed' sizing mode requires width and height to be set: Column(id='p1052', ...)
+2026-07-22 22:20:07,718 INFO    tornado.access | 200 GET / (::1) 1177.39ms
+2026-07-22 22:20:07,729 INFO    findata.analysis.plotting.workbench.app | New workbench session (50 tickers)
+2026-07-22 22:20:08,142 WARNING bokeh.core.validation.check | W-1005 (FIXED_SIZING_MODE): 'fixed' sizing mode requires width and height to be set: Column(id='p1340', ...)
+2026-07-22 22:20:08,148 INFO    tornado.access | 200 GET / (::1) 419.97ms

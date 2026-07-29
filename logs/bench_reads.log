@@ -1,0 +1,12 @@
+2026-07-22 20:42:19,419 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/bench_reads.log
+2026-07-22 20:42:25,889 INFO    findata.database.db_manager | get_all_data bulk (20 tickers) done in 6.26s
+2026-07-22 20:42:26,608 INFO    findata.database.db_manager | get_items bulk (20 tickers, 2 items) done in 0.40s
+2026-07-22 20:43:05,717 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/bench_reads.log
+2026-07-22 20:47:40,483 INFO    findata.database.db_manager | get_all_data bulk (856 tickers) done in 265.94s
+2026-07-22 21:19:28,081 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/bench_reads.log
+2026-07-22 21:19:28,984 INFO    findata.database.db_manager | get_all_data (20 tickers) done in 0.68s
+2026-07-22 21:19:29,121 INFO    findata.database.db_manager | get_items (20 tickers, 1 cols) done in 0.14s
+2026-07-22 21:19:30,584 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/bench_reads.log
+2026-07-22 21:20:14,506 INFO    findata.database.db_manager | get_all_data (856 tickers) done in 35.68s
+2026-07-22 21:20:20,528 INFO    findata.database.db_manager | Computing 1 missing technical column(s) for 2 ticker(s)
+2026-07-22 21:20:20,619 INFO    findata.database.db_manager | get_items (856 tickers, 1 cols) done in 6.11s

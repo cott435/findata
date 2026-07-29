@@ -1,14 +1,16 @@
 """Persistence and query layer for the stock_data SQLite database.
 
 All DB reads/writes go through DBManager. Acquisition (yf.py) and math
-(technical_calculators.py) never touch the database; this module wires them together
-for ingestion and exposes the query API used by downstream projects.
+(findata.preprocess.calculators) never touch the database; this module wires
+them together for ingestion and exposes the query API used by downstream
+projects.
 
 Conflict policy: price/ema/indicator rows are INSERT OR IGNORE (append-only);
 ticker_meta is upserted.
 """
 
 import logging
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -16,30 +18,36 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, create_engine, event, func, select, tuple_
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from tqdm.auto import tqdm
 
 
 from findata.configs import DATA_DIR, DB_NAME
 
-import findata.database.technical_calculators as calc
-from .tables import (Base, BalanceData, CashflowData, EmaData, FilingsData,
-                     Form4Data, IncomeData, IndicatorData, PriceData, TickerMeta)
+import findata.preprocess.calculators.technical as calc
+from findata.preprocess.calculators.base import (CALCULATOR_REGISTRY, column_name,
+                                                 known_items, output_owner,
+                                                 parse_column)
+from findata.utils.timing import timed
+from .tables import (Base, BalanceData, CashflowData, FilingsData, Form4Data,
+                     FundamentalData, IncomeData, PriceData, TechnicalData,
+                     TickerMeta)
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = Path(DATA_DIR) / DB_NAME
 
 PRICE_COLUMNS = ['open', 'high', 'low', 'close', 'volume', 'dividend', 'split_ratio']
-EMA_ITEMS = ('ema_close', 'ema_obv', 'ema_ad')
-CUMULATIVE_ITEMS = ('obv', 'ad')
 
 # trailing bars fetched ahead of new dates so rolling windows are exact on update
 WARMUP_BARS = 150
 
-# reverse map: indicator column -> calculator group that produces it
-_COLUMN_TO_GROUP = {col: name for name, cols in calc.INDICATOR_OUTPUTS.items() for col in cols}
+# wide technical_data key columns (everything else is an item_period value)
+TECHNICAL_KEY = ('ticker', 'date', 'interval')
+
+# runtime-added columns must be plain lowercase identifiers
+_COLUMN_NAME_RE = re.compile(r'^[a-z][a-z0-9_]*$')
 
 
 class MissingItemsError(LookupError):
@@ -54,14 +62,21 @@ class DBManager:
     """Single entry point for writing to and querying the stock database.
 
     ``if_missing`` controls what get_items does when a requested
-    (item, period) has no stored rows: 'raise' raises MissingItemsError,
-    'add' computes it from stored price data, inserts it, and returns it.
+    (item, period) has no stored values: 'raise' raises MissingItemsError,
+    'add' (the default) computes it on the fly from stored price data,
+    returns it, and persists it when ``save_policy`` allows the calculator's
+    group (``findata.configs.SAVE_POLICY`` unless one is passed).
     """
 
-    def __init__(self, db_path=None, db_name=None, if_missing: str = 'raise'):
+    def __init__(self, db_path=None, db_name=None, if_missing: str = 'add',
+                 save_policy=None):
         if if_missing not in ('raise', 'add'):
             raise ValueError("if_missing must be 'raise' or 'add'")
         self.if_missing = if_missing
+        if save_policy is None:
+            from findata.configs import SAVE_POLICY
+            save_policy = SAVE_POLICY
+        self.save_policy = save_policy
         db_path = Path(db_path) if db_path is not None else Path(DATA_DIR) / db_name if db_name else DEFAULT_DB_PATH
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db_path = db_path
@@ -69,6 +84,7 @@ class DBManager:
         event.listen(self.engine, 'connect', self._set_sqlite_pragmas)
         Base.metadata.create_all(self.engine)
         self._ensure_schema()
+        self._tech_cols = None  # cached technical_data value columns
 
     @staticmethod
     def _set_sqlite_pragmas(dbapi_conn, _record):
@@ -82,12 +98,16 @@ class DBManager:
         cur = dbapi_conn.cursor()
         cur.execute('PRAGMA journal_mode=WAL')
         cur.execute('PRAGMA synchronous=NORMAL')
+        cur.execute('PRAGMA cache_size=-262144')    # 256 MiB page cache
+        cur.execute('PRAGMA mmap_size=4294967296')  # read pages via mmap, 4 GiB cap
+        cur.execute('PRAGMA temp_store=MEMORY')
         cur.close()
 
     def _ensure_schema(self):
         """Add columns introduced after a table already exists on disk
         (create_all only creates missing tables, it never alters them)."""
-        added = {'ticker_meta': {'last_form4_date': 'DATE'}}
+        added = {'ticker_meta': {'last_form4_date': 'DATE',
+                                 'technicals_seeded': 'BOOLEAN'}}
         with self.engine.begin() as conn:
             for table, columns in added.items():
                 existing = {row[1] for row in
@@ -97,6 +117,28 @@ class DBManager:
                         logger.info('Migrating %s: adding column %s', table, column)
                         conn.exec_driver_sql(
                             f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}')
+
+    def _technical_columns(self) -> list:
+        """Value columns of technical_data on disk (PRAGMA-discovered so
+        runtime-added windows are included), cached until an ALTER."""
+        if self._tech_cols is None:
+            with self.engine.connect() as conn:
+                info = conn.exec_driver_sql('PRAGMA table_info(technical_data)')
+                self._tech_cols = [row[1] for row in info if row[1] not in TECHNICAL_KEY]
+        return self._tech_cols
+
+    def _ensure_technical_columns(self, columns) -> list:
+        """ALTER technical_data to add any missing value columns."""
+        new = [c for c in columns if c not in self._technical_columns()]
+        for col in new:
+            if not _COLUMN_NAME_RE.match(col):
+                raise ValueError(f'Invalid technical column name {col!r}')
+            logger.info('technical_data: adding column %s', col)
+            with self.engine.begin() as conn:
+                conn.exec_driver_sql(f'ALTER TABLE technical_data ADD COLUMN "{col}" REAL')
+        if new:
+            self._tech_cols = None
+        return new
 
     @staticmethod
     def _resolve_db_path(name) -> Path:
@@ -129,28 +171,36 @@ class DBManager:
         if not Path(source).exists():
             raise FileNotFoundError(f'source db not found: {source}')
 
-        # build an empty full schema in the destination, then release it so
-        # it can be ATTACHed to the source connection
+        # destination schema is copied verbatim from the source sqlite_master
+        # (not the ORM) so runtime-added technical columns survive extraction
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest_engine = create_engine(f'sqlite:///{dest}')
-        Base.metadata.create_all(dest_engine)
-        dest_engine.dispose()
-
         placeholders = ','.join('?' * len(tickers))
-        conn = sqlite3.connect(str(source))
+        src = sqlite3.connect(str(source))
         try:
-            conn.execute('ATTACH DATABASE ? AS dest', (str(dest),))
+            schemas = src.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%'").fetchall()
+            dst = sqlite3.connect(str(dest))
+            try:
+                existing = {row[0] for row in dst.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")}
+                for name, create_sql in schemas:
+                    if name not in existing:
+                        dst.execute(create_sql)
+                dst.commit()
+            finally:
+                dst.close()
+
+            src.execute('ATTACH DATABASE ? AS dest', (str(dest),))
             counts = {}
-            for table_name, table in Base.metadata.tables.items():
-                cols = ', '.join(c.name for c in table.columns)
-                cur = conn.execute(
-                    f'INSERT INTO dest.{table_name} ({cols}) '
-                    f'SELECT {cols} FROM main.{table_name} '
+            for name, _ in schemas:
+                cur = src.execute(
+                    f'INSERT INTO dest."{name}" SELECT * FROM main."{name}" '
                     f'WHERE ticker IN ({placeholders})', tickers)
-                counts[table_name] = cur.rowcount
-            conn.commit()
+                counts[name] = cur.rowcount
+            src.commit()
         finally:
-            conn.close()
+            src.close()
 
         logger.info('Copied subset %s -> %s for %d ticker(s): %s rows',
                     Path(source).name, dest.name, len(tickers), sum(counts.values()))
@@ -162,81 +212,88 @@ class DBManager:
     # ------------------------------------------------------------------ #
 
     def add_ticker_data(self, info: pd.DataFrame, prices: pd.DataFrame,
-                        progress: bool = True, daily_only=True) -> dict:
+                        progress: bool = True, daily_only=True,
+                        compute_technicals: bool = True) -> dict:
         """Cold-start ingestion from the yf.py output.
 
         ``info`` is indexed by ticker; ``prices`` by (interval, ticker, date).
         Processes one ticker at a time -- insert bars, compute the full
-        EMA/indicator history, insert, mark yf_seeded -- so the progress bar
-        steps per ticker and an interrupted run resumes where it stopped.
-        Idempotent (INSERT OR IGNORE); counts are rows actually inserted.
+        technical history (skipped for a prices-only seed with
+        ``compute_technicals=False``), write, mark meta -- so the progress
+        bar steps per ticker and an interrupted run resumes where it stopped.
+        Idempotent; counts are rows actually written.
         """
         prices = self._standardize_prices(prices)
         groups = prices.groupby(level='ticker', sort=False)
-        logger.info('Cold-start: seeding %d ticker(s)', len(groups))
-        counts = {'price': 0, 'ema': 0, 'indicator': 0}
+        logger.info('Cold-start: seeding %d ticker(s), compute_technicals=%s',
+                    len(groups), compute_technicals)
+        counts = {'price': 0, 'technical': 0}
 
         for ticker, sub in tqdm(groups, desc='Seeding', unit='ticker', disable=not progress):
             sub = sub.loc[['daily']] if daily_only else sub
-            calc_long = calc.calculate_all(sub).melt(ignore_index=False).reset_index()
-            with self._raw_txn() as conn:  # price + ema + indicator in one fsync
-                inserted = {'price': self._insert_prices(sub, conn=conn)}
-                inserted |= self._insert_calc_long(calc_long, conn=conn)
+            with self._raw_txn() as conn:  # price + technicals in one fsync
+                inserted = {'price': self._insert_prices(sub, conn=conn), 'technical': 0}
+                if compute_technicals:
+                    for (interval, tkr), bars in sub.groupby(level=['interval', 'ticker'],
+                                                             sort=False):
+                        calc_df = calc.calculate_all(bars.droplevel(['interval', 'ticker']))
+                        wide = self._calc_to_wide(calc_df, tkr, interval)
+                        inserted['technical'] += self._upsert_technicals(wide, conn=conn)
             if ticker in info.index:
-                self._upsert_meta(info.loc[[ticker]], yf_seeded=True)
+                self._upsert_meta(info.loc[[ticker]], yf_seeded=True,
+                                  technicals_seeded=compute_technicals)
             else:
                 logger.warning('%s: no metadata returned, not marked yf_seeded', ticker)
             for key in counts:
                 counts[key] += inserted[key]
             logger.debug('%s seeded: %s', ticker, inserted)
 
-        logger.info('Cold-start done, rows inserted: %s', counts)
+        logger.info('Cold-start done, rows written: %s', counts)
         return counts
 
     def update_ticker_data(self, prices: pd.DataFrame, info: pd.DataFrame = None,
                            progress: bool = True, daily_only=True) -> dict:
         """Incremental ingestion of new bars for already-seeded tickers.
 
-        Inserts the new price rows, then continues each EMA/indicator from
-        its last stored value (seeded EWMs/cumsums; rolling windows recompute
-        over WARMUP_BARS trailing bars). The periods to maintain are taken
-        from what is already stored for the ticker, so custom periods added
-        via if_missing='add' keep updating too. A ticker/interval with no
-        stored calculations falls back to a full cold-start computation.
-        Counts are rows actually inserted (overlap is ignored on conflict).
+        Inserts the new price rows, then continues each ticker's stored
+        technical columns from their last values (seeded EWMs/cumsums;
+        rolling windows recompute over WARMUP_BARS trailing bars). The
+        columns to maintain are whatever holds values in the ticker's recent
+        technical rows, so custom windows added on the fly keep updating.
+        A ticker with no technical rows is prices-only and stays that way --
+        promote it with scripts/db_handling/seed_technicals.py.
         """
         prices = self._standardize_prices(prices)
-        counts = {'price': self._insert_prices(prices), 'ema': 0, 'indicator': 0}
+        counts = {'price': self._insert_prices(prices), 'technical': 0}
         if daily_only:
-            groups = prices.loc[['daily']].groupby(level='ticker', sort=False)
-        else:
-            groups = list(prices.groupby(level=['interval', 'ticker']))
+            prices = prices.loc[['daily']]
+        groups = prices.groupby(level=['interval', 'ticker'], sort=False)
         logger.info('Incremental update: %d new price rows across %d ticker/interval group(s)',
                     counts['price'], len(groups))
 
+        n_full = n_prices_only = 0
         for (interval, ticker), new_bars in tqdm(groups, desc='Updating', unit='group',
                                                  disable=not progress):
-            seeds = self._load_seeds(ticker, interval)
-            if seeds:
-                window = self._price_window(ticker, interval, len(new_bars) + WARMUP_BARS)
-                stored_windows = self._stored_windows(ticker, interval)
-                calc_df = calc.calculate_all(window, seeds=seeds, **stored_windows)
-            else:
-                logger.debug('%s/%s has no stored calculations, computing cold', ticker, interval)
-                calc_df = calc.calculate_all(self.get_price_data(ticker, interval))
-            long = calc_df.melt(ignore_index=False).reset_index(names='date')
-            long['ticker'], long['interval'] = ticker, interval
-            with self._raw_txn() as conn:  # ema + indicator in one fsync
-                inserted = self._insert_calc_long(long, conn=conn)
-            counts['ema'] += inserted['ema']
-            counts['indicator'] += inserted['indicator']
-            logger.debug('%s/%s updated: %s', ticker, interval, inserted)
+            seeds, windows = self._technical_state(ticker, interval)
+            if not windows:
+                logger.debug('%s/%s has no stored technicals, prices only', ticker, interval)
+                n_prices_only += 1
+                continue
+            window = self._price_window(ticker, interval, len(new_bars) + WARMUP_BARS)
+            calc_df = calc.calculate_all(window, seeds=seeds, **windows)
+            wide = self._calc_to_wide(calc_df, ticker, interval)
+            with self._raw_txn() as conn:
+                written = self._upsert_technicals(wide, conn=conn)
+            counts['technical'] += written
+            n_full += 1
+            logger.debug('%s/%s updated: %d technical rows', ticker, interval, written)
 
         if info is None:
             info = self._last_price_dates(prices)
         if not info.empty:
             self._upsert_meta(info)
-        logger.info('Incremental update done, rows inserted: %s', counts)
+        logger.info('Incremental update done: %s (%d full, %d prices-only)',
+                    counts, n_full, n_prices_only)
         return counts
 
     @staticmethod
@@ -262,25 +319,44 @@ class DBManager:
     def _insert_prices(self, prices: pd.DataFrame, conn=None) -> int:
         return self._insert_ignore(PriceData, prices.reset_index(), conn=conn)
 
-    def _insert_calc_long(self, long: pd.DataFrame, conn=None) -> dict:
-        """Split a melted calculate_all frame into ema_data / indicator_data rows.
+    @staticmethod
+    def _calc_to_wide(calc_df: pd.DataFrame, ticker: str, interval: str) -> pd.DataFrame:
+        """calculate_all output -> technical_data row frame (key + value cols)."""
+        wide = calc_df.copy()
+        wide.columns = [column_name(item, period) for item, period in calc_df.columns]
+        wide = wide.reset_index(names='date')
+        wide.insert(0, 'ticker', ticker)
+        wide.insert(2, 'interval', interval)
+        return wide
 
-        Expects columns [interval, ticker, date, item, period, value].
+    def _upsert_technicals(self, wide: pd.DataFrame, conn=None) -> int:
+        """Wide upsert into technical_data.
+
+        Only the frame's columns are touched; stored values are kept where
+        the incoming value is NULL (a recompute window's leading warmup rows
+        must not blank out good history).
         """
-        long = long.dropna(subset=['value'])
-        long['period'] = long['period'].astype(int)
-        is_ema = long['item'].str.startswith('ema_')
-
-        emas = long[is_ema].copy()
-        emas['base'] = emas['item'].str[4:]
-        emas = emas.rename(columns={'value': 'ema_value'})
-        n_ema = self._insert_ignore(
-            EmaData, emas[['ticker', 'date', 'period', 'base', 'interval', 'ema_value']], conn=conn)
-
-        inds = long[~is_ema].rename(columns={'item': 'indicator', 'interval': 'freq'})
-        n_ind = self._insert_ignore(
-            IndicatorData, inds[['ticker', 'date', 'freq', 'indicator', 'period', 'value']], conn=conn)
-        return {'ema': n_ema, 'indicator': n_ind}
+        if wide.empty:
+            return 0
+        value_cols = [c for c in wide.columns if c not in TECHNICAL_KEY]
+        self._ensure_technical_columns(value_cols)
+        cols = list(TECHNICAL_KEY) + value_cols
+        quoted = ', '.join(f'"{c}"' for c in cols)
+        assignments = ', '.join(f'"{c}"=COALESCE(excluded."{c}", "{c}")' for c in value_cols)
+        sql = (f'INSERT INTO technical_data ({quoted}) '
+               f'VALUES ({", ".join("?" * len(cols))}) '
+               f'ON CONFLICT(ticker, date, interval) DO UPDATE SET {assignments}')
+        own = conn is None
+        connection = self.engine.raw_connection() if own else conn
+        try:
+            cursor = connection.cursor()
+            cursor.executemany(sql, self._tuple_rows(wide[cols]))
+            if own:
+                connection.commit()
+            return cursor.rowcount
+        finally:
+            if own:
+                connection.close()
 
     def upsert_ticker_meta(self, info: pd.DataFrame, **flags):
         """Public upsert into ticker_meta (info indexed by ticker; flags are
@@ -292,13 +368,16 @@ class DBManager:
                    'last_filings_date', 'last_form4_date', 'yf_seeded', 'edgar_seeded']
         df = info.reset_index()
         records = self._records(df[[c for c in df.columns if c in allowed]])
+        if not records:
+            return
         now = datetime.now()
+        for record in records:
+            record.update(flags, updated_at=now)
+        stmt = sqlite_insert(TickerMeta.__table__)
+        update_cols = {k: stmt.excluded[k] for k in records[0] if k != 'ticker'}
+        stmt = stmt.on_conflict_do_update(index_elements=['ticker'], set_=update_cols)
         with self.engine.begin() as conn:
-            for record in records:
-                record.update(flags, updated_at=now)
-                stmt = sqlite_insert(TickerMeta.__table__).values(**record)
-                update_cols = {k: stmt.excluded[k] for k in record if k != 'ticker'}
-                conn.execute(stmt.on_conflict_do_update(index_elements=['ticker'], set_=update_cols))
+            conn.execute(stmt, records)
 
     @contextmanager
     def _raw_txn(self):
@@ -389,55 +468,49 @@ class DBManager:
         df = pd.read_sql(stmt, self.engine)
         return df.iloc[::-1].set_index('date')
 
-    def _load_seeds(self, ticker: str, interval: str) -> dict:
-        """Last stored value per seedable (item, period) -> calculate_all seeds."""
-        seeds = {}
-        last_ema = (select(EmaData.base, EmaData.period, func.max(EmaData.date).label('date'))
-                    .where(EmaData.ticker == ticker, EmaData.interval == interval)
-                    .group_by(EmaData.base, EmaData.period).subquery())
-        ema_stmt = (select(EmaData.base, EmaData.period, EmaData.date, EmaData.ema_value)
-                    .join(last_ema, and_(EmaData.base == last_ema.c.base,
-                                         EmaData.period == last_ema.c.period,
-                                         EmaData.date == last_ema.c.date))
-                    .where(EmaData.ticker == ticker, EmaData.interval == interval))
+    def _technical_state(self, ticker: str, interval: str) -> tuple:
+        """Seeds + maintained windows from the trailing technical rows.
 
-        last_ind = (select(IndicatorData.indicator, IndicatorData.period,
-                           func.max(IndicatorData.date).label('date'))
-                    .where(IndicatorData.ticker == ticker, IndicatorData.freq == interval,
-                           IndicatorData.indicator.in_(calc.SEEDED_ITEMS))
-                    .group_by(IndicatorData.indicator, IndicatorData.period).subquery())
-        ind_stmt = (select(IndicatorData.indicator, IndicatorData.period,
-                           IndicatorData.date, IndicatorData.value)
-                    .join(last_ind, and_(IndicatorData.indicator == last_ind.c.indicator,
-                                         IndicatorData.period == last_ind.c.period,
-                                         IndicatorData.date == last_ind.c.date))
-                    .where(IndicatorData.ticker == ticker, IndicatorData.freq == interval))
-
-        with self.engine.connect() as conn:
-            for base, period, date, value in conn.execute(ema_stmt):
-                seeds[(f'ema_{base}', period)] = pd.Series([value], index=[date])
-            for indicator, period, date, value in conn.execute(ind_stmt):
-                seeds[(indicator, period)] = pd.Series([value], index=[date])
-        return seeds
-
-    def _stored_windows(self, ticker: str, interval: str) -> dict:
-        """Periods already stored for this ticker -> calculate_all overrides.
-
-        Ensures incremental updates maintain every (item, period) combo in
-        the DB, not just the configured defaults.
+        Returns ``(seeds, windows)``: seeds maps seedable (item, period) keys
+        to one-row Series for calculate_all; windows maps calculator names to
+        sorted period lists (calculate_all overrides). Maintained columns are
+        those holding any value in the trailing WARMUP_BARS rows. One indexed
+        range scan replaces the old per-table GROUP-BY probes. A ticker with
+        no technical rows returns ({}, {}).
         """
-        ema_stmt = (select(EmaData.base, EmaData.period).distinct()
-                    .where(EmaData.ticker == ticker, EmaData.interval == interval))
-        ind_stmt = (select(IndicatorData.indicator, IndicatorData.period).distinct()
-                    .where(IndicatorData.ticker == ticker, IndicatorData.freq == interval,
-                           IndicatorData.period > 0))
-        windows = {}
-        with self.engine.connect() as conn:
-            for base, period in conn.execute(ema_stmt):
-                windows.setdefault(f'ema_{base}', set()).add(period)
-            for indicator, period in conn.execute(ind_stmt):
-                windows.setdefault(_COLUMN_TO_GROUP[indicator], set()).add(period)
-        return {name: sorted(periods) for name, periods in windows.items()}
+        cols = self._technical_columns()
+        if not cols:
+            return {}, {}
+        col_list = ', '.join(f'"{c}"' for c in cols)
+        sql = (f'SELECT date, {col_list} FROM technical_data '
+               f'WHERE ticker = ? AND interval = ? ORDER BY date DESC LIMIT {WARMUP_BARS}')
+        connection = self.engine.raw_connection()
+        try:
+            rows = connection.cursor().execute(sql, (ticker, interval)).fetchall()
+        finally:
+            connection.close()
+        if not rows:
+            return {}, {}
+        df = pd.DataFrame(rows[::-1], columns=['date'] + cols)
+        df['date'] = [date.fromisoformat(d) for d in df['date']]
+        df = df.set_index('date')
+
+        seeds, windows = {}, {}
+        for col in cols:
+            series = df[col].dropna()
+            if series.empty:
+                continue
+            try:
+                item, period = parse_column(col)
+            except KeyError:  # legacy column no calculator owns -- not maintained
+                logger.debug('technical_data column %r has no calculator, skipped', col)
+                continue
+            owner = output_owner(item)
+            if period:  # period-0 items (obv, ad) are always computed
+                windows.setdefault(owner, set()).add(period)
+            if item in CALCULATOR_REGISTRY[owner].seeded:
+                seeds[(item, period)] = series.iloc[[-1]]
+        return seeds, {name: sorted(periods) for name, periods in windows.items()}
 
     # ------------------------------------------------------------------ #
     # query API
@@ -472,7 +545,8 @@ class DBManager:
                 .rename(columns=lambda interval: f'{interval}_bars'))
         daily_range = (coverage[coverage['interval'] == 'daily']
                        .set_index('ticker')[['first_date', 'last_date']])
-        cols = ['name', 'sector', 'industry', 'last_price_date', 'yf_seeded', 'edgar_seeded']
+        cols = ['name', 'sector', 'industry', 'last_price_date', 'yf_seeded',
+                'technicals_seeded', 'edgar_seeded']
         return meta[cols].join(bars).join(daily_range)
 
     def _stack_tickers(self, method, tickers, **kwargs) -> pd.DataFrame:
@@ -495,8 +569,17 @@ class DBManager:
     def get_price_data(self, ticker, interval: str = 'daily',
                        start=None, end=None) -> pd.DataFrame:
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_price_data, ticker,
-                                       interval=interval, start=start, end=end)
+            tickers = list(ticker)
+            stmt = (select(PriceData.ticker, PriceData.date,
+                           *[getattr(PriceData, c) for c in PRICE_COLUMNS])
+                    .where(PriceData.ticker.in_(tickers), PriceData.interval == interval)
+                    .order_by(PriceData.ticker, PriceData.date))
+            stmt = self._date_filter(stmt, PriceData.date, start, end)
+            df = pd.read_sql(stmt, self.engine)
+            if df.empty:
+                return self.get_price_data(tickers[0], interval, start, end) \
+                    if tickers else pd.DataFrame()
+            return df.set_index(['ticker', 'date'])
         stmt = (select(PriceData.date, *[getattr(PriceData, c) for c in PRICE_COLUMNS])
                 .where(PriceData.ticker == ticker, PriceData.interval == interval)
                 .order_by(PriceData.date))
@@ -504,67 +587,172 @@ class DBManager:
         return pd.read_sql(stmt, self.engine).set_index('date')
 
     def get_all_data(self, ticker, interval: str = 'daily',
-                     start=None, end=None, wide: bool = True) -> pd.DataFrame:
-        """Everything stored for a ticker/interval: prices + EMAs + indicators.
+                     start=None, end=None, wide: bool = True,
+                     include_fundamentals: bool = False) -> pd.DataFrame:
+        """Everything stored for ticker(s)/interval: prices + technicals.
 
-        wide=True returns one date-indexed frame (calculated columns named
+        One price_data LEFT JOIN technical_data scan -- no pivots. wide=True
+        returns a date-indexed frame (calculated columns named
         '<item>_<period>', period-0 items keep their bare name). wide=False
         returns a long frame [date, item, period, value] with the price
-        columns included as period-0 items.
+        columns included as period-0 items. ``include_fundamentals`` merges
+        the daily-aligned derived fundamentals as ``fund_<item>`` columns.
 
-        ``ticker`` may be a list; results are stacked with a leading 'ticker'
-        index level (wide -> (ticker, date)) or 'ticker' column (long).
+        ``ticker`` may be a list; results gain a leading 'ticker' index
+        level (wide -> (ticker, date), sorted) or 'ticker' column (long).
         """
-        if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_all_data, ticker, interval=interval,
-                                       start=start, end=end, wide=wide)
-        price = self.get_price_data(ticker, interval, start, end)
-        calc_long = pd.concat([
-            self._read_ema_long(ticker, interval, None, start, end),
-            self._read_ind_long(ticker, interval, None, start, end),
-        ], ignore_index=True)
-        return self._shape(price, calc_long, wide)
+        single = isinstance(ticker, str)
+        tickers = [ticker] if single else list(ticker)
+        if not tickers:
+            return pd.DataFrame()
+        tech_cols = sorted(self._technical_columns())
+        with timed(logger, f'get_all_data ({len(tickers)} tickers)'):
+            df = self._read_joined(tickers, interval, PRICE_COLUMNS, tech_cols, start, end)
+            if include_fundamentals:
+                fund = self.get_fundamentals(tickers, start=start, end=end, daily=True)
+                if not fund.empty:
+                    fund.columns = [f'fund_{c}' for c in fund.columns]
+                    df = df.join(fund)
+        if not wide:
+            df = self._wide_to_long(df)
+            return df.drop(columns='ticker') if single else df
+        return df.droplevel('ticker') if single else df
 
     def get_items(self, ticker, items: dict, interval: str = 'daily',
-                  start=None, end=None, wide: bool = True) -> pd.DataFrame:
+                  start=None, end=None, wide: bool = True,
+                  persist: bool = None) -> pd.DataFrame:
         """Fetch specific items: {name: period(s) or None}.
 
-        Names can be price columns ('close'), EMA items ('ema_close',
-        'ema_obv', 'ema_ad'), indicator columns ('rsi', 'bb_upper', 'atr',
-        'obv', ...) or calculator group names ('bollinger', 'stochastic',
-        'adx', 'aroon' -- expanded to all their output columns). Periods may
-        be an int, a list of ints, or None for the configured default
-        (ignored for price columns and obv/ad).
+        Names can be price columns ('close'), output items ('rsi',
+        'bb_upper', 'atr', 'obv', 'ema_close', ...) or calculator names
+        ('bollinger', 'stochastic', 'adx', 'aroon' -- expanded to all their
+        output columns). Periods may be an int, a list of ints, or None for
+        the calculator's defaults (ignored for price columns and obv/ad).
 
-        Missing (item, period) combos follow self.if_missing: 'raise' raises
-        MissingItemsError; 'add' computes them from stored price data,
-        inserts them, and returns them.
+        Missing (item, period) values follow self.if_missing: 'raise' raises
+        MissingItemsError; 'add' computes them on the fly over the full
+        stored price history and merges them into the result. Computed
+        values persist when ``persist`` is True, or when it is None and the
+        save policy allows the calculator's group ('technical.core' for
+        default windows, 'technical.custom' otherwise). Tickers with no
+        stored prices are skipped with a warning.
 
-        ``ticker`` may be a list; results are stacked with a leading 'ticker'
-        index level (wide -> (ticker, date)) or 'ticker' column (long).
+        ``ticker`` may be a list; results gain a leading 'ticker' index
+        level (wide -> (ticker, date), sorted) or 'ticker' column (long).
         """
-        if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_items, ticker, items=items, interval=interval,
-                                       start=start, end=end, wide=wide)
-        price_cols, ema_pairs, ind_pairs = self._resolve_items(items)
+        single = isinstance(ticker, str)
+        tickers = [ticker] if single else list(ticker)
+        if not tickers:
+            return pd.DataFrame()
+        price_cols, pairs = self._resolve_items(items)
+        tech_cols = [column_name(item, period) for item, period in pairs]
 
-        missing_emas = self._missing_pairs(ticker, interval, EmaData, ema_pairs)
-        missing_inds = self._missing_pairs(ticker, interval, IndicatorData, ind_pairs)
-        if missing_emas or missing_inds:
-            if self.if_missing == 'raise':
-                raise MissingItemsError(
-                    [(f'ema_{base}', p) for base, p in missing_emas] + missing_inds)
-            self._add_missing(ticker, interval, missing_emas, missing_inds)
+        stored = self._technical_columns()
+        present = sorted(c for c in tech_cols if c in stored)
+        with timed(logger, f'get_items ({len(tickers)} tickers, {len(tech_cols)} cols)'):
+            df = self._read_joined(tickers, interval, price_cols, present, start, end)
+            missing = self._missing_technicals(df, tickers, tech_cols)
+            if missing:
+                if self.if_missing == 'raise':
+                    raise MissingItemsError(sorted({parse_column(col) for _, col in missing}))
+                df = self._compute_missing(df, missing, interval, persist)
 
-        parts = []
-        if ema_pairs:
-            parts.append(self._read_ema_long(ticker, interval, ema_pairs, start, end))
-        if ind_pairs:
-            parts.append(self._read_ind_long(ticker, interval, ind_pairs, start, end))
-        calc_long = pd.concat(parts, ignore_index=True) if parts else None
-        price = (self.get_price_data(ticker, interval, start, end)[price_cols]
-                 if price_cols else None)
-        return self._shape(price, calc_long, wide)
+        ordered = ([c for c in price_cols if c in df.columns]
+                   + sorted(c for c in df.columns if c not in price_cols))
+        df = df[ordered]
+        if not wide:
+            df = self._wide_to_long(df)
+            return df.drop(columns='ticker') if single else df
+        return df.droplevel('ticker') if single else df
+
+    def _missing_technicals(self, df: pd.DataFrame, tickers, tech_cols) -> list:
+        """(ticker, column) pairs with no stored values in the read result.
+
+        Presence keys off the index, not DataFrame.empty -- a read with rows
+        but zero requested value columns is still a populated read.
+        """
+        present_tickers = (set(df.index.get_level_values('ticker'))
+                           if len(df.index) else set())
+        absent = [t for t in tickers if t not in present_tickers]
+        if absent:
+            logger.warning('get_items: no stored prices for %s, skipped', absent)
+        counts = (df.groupby(level='ticker').count()
+                  if len(df.index) and len(df.columns) else None)
+        missing = []
+        for col in tech_cols:
+            if col not in df.columns:
+                missing += [(t, col) for t in tickers if t in present_tickers]
+            elif counts is not None:
+                missing += [(t, col) for t in counts.index[counts[col] == 0]]
+        return missing
+
+    def _compute_missing(self, df: pd.DataFrame, missing: list, interval,
+                         persist) -> pd.DataFrame:
+        """On-the-fly computation of absent (ticker, column) values.
+
+        Computes over the full stored price history (exact cold start),
+        persists per calculator group policy (all sibling outputs of a
+        calculator are stored together), and merges the requested columns
+        into the read result.
+        """
+        by_ticker = {}
+        for t, col in missing:
+            by_ticker.setdefault(t, []).append(col)
+        logger.info('Computing %d missing technical column(s) for %d ticker(s)',
+                    len({col for _, col in missing}), len(by_ticker))
+        prices = self.get_price_data(list(by_ticker), interval)
+        if prices.empty:
+            return df
+
+        computed_frames = []
+        for t, cols in by_ticker.items():
+            try:
+                ticker_prices = prices.xs(t, level='ticker')
+            except KeyError:
+                continue
+            plans = {}
+            for col in cols:
+                item, period = parse_column(col)
+                plans.setdefault((output_owner(item), period), None)
+            out, to_persist = {}, {}
+            for owner, period in plans:
+                calculator = CALCULATOR_REGISTRY[owner]
+                res = (calculator.calculate(ticker_prices, period=period)
+                       if period else calculator.calculate(ticker_prices))
+                res = res.to_frame() if isinstance(res, pd.Series) else res
+                res.columns = [column_name(item, period) for item in res.columns]
+                out.update({c: res[c] for c in res.columns})
+                save = (persist if persist is not None
+                        else self.save_policy.allows(self._policy_group(calculator, period)))
+                if save:
+                    to_persist.update({c: res[c] for c in res.columns})
+            if to_persist:
+                rows = pd.DataFrame(to_persist)
+                rows.index.name = 'date'
+                rows = rows.reset_index()
+                rows.insert(0, 'ticker', t)
+                rows.insert(2, 'interval', interval)
+                self._upsert_technicals(rows)
+            frame = pd.DataFrame(out)
+            frame.index.name = 'date'
+            frame['ticker'] = t
+            computed_frames.append(frame.reset_index().set_index(['ticker', 'date']))
+
+        if not computed_frames:
+            return df
+        computed = pd.concat(computed_frames)
+        requested = {col for _, col in missing}
+        computed = computed[[c for c in computed.columns if c in requested]]
+        for col in computed.columns:
+            if col not in df.columns:
+                df[col] = np.nan
+        df.update(computed)
+        return df
+
+    @staticmethod
+    def _policy_group(calculator, period: int) -> str:
+        defaults = calculator.default_params.get('periods', [])
+        return 'technical.core' if period in defaults else 'technical.custom'
 
     # ------------------------------------------------------------------ #
     # get_items internals
@@ -572,112 +760,93 @@ class DBManager:
 
     @staticmethod
     def _resolve_items(items: dict):
-        """Normalize the request dict into price columns and (item, period) pairs."""
-        price_cols, ema_pairs, ind_pairs = [], [], []
+        """Normalize the request dict into price columns and (item, period) pairs.
+
+        Names may be price columns, registered output items, or calculator
+        names (expanded to every output item). None takes the owning
+        calculator's default periods; period-0 calculators (obv, ad) always
+        resolve to period 0.
+        """
+        price_cols, pairs = [], []
+        registered_items = set(known_items())
         for name, periods in items.items():
             if name in PRICE_COLUMNS:
                 price_cols.append(name)
-            elif name in EMA_ITEMS:
-                periods = calc.EMA_WINDOWS[name] if periods is None else periods
-                ema_pairs += [(name[4:], int(p)) for p in calc._as_list(periods)]
-            elif name in CUMULATIVE_ITEMS:
-                ind_pairs.append((name, 0))
-            elif name in calc.INDICATOR_FUNCS:  # group name -> all output columns
-                periods = calc.INDICATOR_WINDOWS[name] if periods is None else periods
-                for p in calc._as_list(periods):
-                    ind_pairs += [(col, int(p)) for col in calc.INDICATOR_OUTPUTS[name]]
-            elif name in _COLUMN_TO_GROUP:  # single output column
-                group = _COLUMN_TO_GROUP[name]
-                periods = calc.INDICATOR_WINDOWS[group] if periods is None else periods
-                ind_pairs += [(name, int(p)) for p in calc._as_list(periods)]
+                continue
+            # calculator name wins over output item where both exist ('adx'):
+            # requesting the calculator expands to its whole output family
+            if name in CALCULATOR_REGISTRY:
+                owner = CALCULATOR_REGISTRY[name]
+                out_items = [spec.item for spec in owner.outputs]
+            elif name in registered_items:
+                owner = CALCULATOR_REGISTRY[output_owner(name)]
+                out_items = [name]
             else:
                 raise KeyError(f"Unknown item '{name}'")
-        return price_cols, sorted(set(ema_pairs)), sorted(set(ind_pairs))
-
-    def _missing_pairs(self, ticker, interval, model, pairs) -> list:
-        if not pairs:
-            return []
-        if model is EmaData:
-            stmt = (select(EmaData.base, EmaData.period).distinct()
-                    .where(EmaData.ticker == ticker, EmaData.interval == interval))
-        else:
-            stmt = (select(IndicatorData.indicator, IndicatorData.period).distinct()
-                    .where(IndicatorData.ticker == ticker, IndicatorData.freq == interval))
-        with self.engine.connect() as conn:
-            existing = set(map(tuple, conn.execute(stmt)))
-        return [pair for pair in pairs if pair not in existing]
-
-    def _add_missing(self, ticker, interval, ema_pairs, ind_pairs):
-        """if_missing='add': compute missing items over full stored history."""
-        logger.info('Computing missing items for %s/%s: emas=%s indicators=%s',
-                    ticker, interval, ema_pairs, ind_pairs)
-        prices = self.get_price_data(ticker, interval)
-        if prices.empty:
-            raise MissingItemsError(
-                [('price_data', interval)])  # nothing to compute from
-
-        # indicators first -- ema_obv/ema_ad may need a freshly added base
-        groups = {(_COLUMN_TO_GROUP[col], p) if col not in CUMULATIVE_ITEMS else (col, 0)
-                  for col, p in ind_pairs}
-        for group, period in sorted(groups):
-            if group in CUMULATIVE_ITEMS:
-                result = getattr(calc, group)(prices)
-            else:
-                result = calc.INDICATOR_FUNCS[group](prices, period=period)
-            if isinstance(result, pd.Series):
-                result = result.to_frame()
-            self._insert_indicator_frame(result, ticker, interval, period)
-
-        for base, period in ema_pairs:
-            series = prices['close'] if base == 'close' else \
-                self._base_series(ticker, interval, prices, base)
-            values = calc.ema(series, period).dropna()
-            rows = pd.DataFrame({
-                'ticker': ticker, 'date': values.index, 'period': period,
-                'base': base, 'interval': interval, 'ema_value': values.values})
-            self._insert_ignore(EmaData, rows)
-
-    def _insert_indicator_frame(self, frame, ticker, interval, period):
-        long = (frame.melt(ignore_index=False, var_name='indicator', value_name='value')
-                .reset_index(names='date').dropna(subset=['value']))
-        long['ticker'], long['freq'], long['period'] = ticker, interval, period
-        self._insert_ignore(
-            IndicatorData, long[['ticker', 'date', 'freq', 'indicator', 'period', 'value']])
-
-    def _base_series(self, ticker, interval, prices, base) -> pd.Series:
-        """obv/ad series for EMA bases, computing and storing it if absent."""
-        stored = self._read_ind_long(ticker, interval, [(base, 0)])
-        if not stored.empty:
-            return stored.set_index('date')['value']
-        series = getattr(calc, base)(prices)
-        self._insert_indicator_frame(series.to_frame(), ticker, interval, 0)
-        return series
+            default_periods = owner.default_params.get('periods', [0])
+            if periods is None or default_periods == [0]:
+                periods = default_periods
+            for p in calc._as_list(periods):
+                pairs += [(item, int(p)) for item in out_items]
+        return price_cols, sorted(set(pairs))
 
     # ------------------------------------------------------------------ #
     # reads + shaping
     # ------------------------------------------------------------------ #
 
-    def _read_ema_long(self, ticker, interval, pairs=None, start=None, end=None) -> pd.DataFrame:
-        stmt = (select(EmaData.date, EmaData.base, EmaData.period,
-                       EmaData.ema_value.label('value'))
-                .where(EmaData.ticker == ticker, EmaData.interval == interval)
-                .order_by(EmaData.date))
-        if pairs is not None:
-            stmt = stmt.where(tuple_(EmaData.base, EmaData.period).in_(pairs))
-        stmt = self._date_filter(stmt, EmaData.date, start, end)
-        df = pd.read_sql(stmt, self.engine)
-        df['item'] = 'ema_' + df['base']
-        return df[['date', 'item', 'period', 'value']]
+    def _read_joined(self, tickers, interval, price_cols, tech_cols,
+                     start=None, end=None) -> pd.DataFrame:
+        """One price LEFT JOIN technicals scan -> (ticker, date)-indexed wide
+        frame. Raw sqlite cursor (dynamic column list) with dates parsed once
+        per row, not once per stored item."""
+        select_cols = (['p.ticker', 'p.date']
+                       + [f'p.{c}' for c in price_cols]
+                       + [f't."{c}"' for c in tech_cols])
+        sql = (f'SELECT {", ".join(select_cols)} FROM price_data p '
+               f'LEFT JOIN technical_data t ON t.ticker = p.ticker '
+               f'AND t.date = p.date AND t.interval = p.interval '
+               f'WHERE p.ticker IN ({",".join("?" * len(tickers))}) AND p.interval = ?')
+        params = [*tickers, interval]
+        if start is not None:
+            sql += ' AND p.date >= ?'
+            params.append(pd.to_datetime(start).date().isoformat())
+        if end is not None:
+            sql += ' AND p.date <= ?'
+            params.append(pd.to_datetime(end).date().isoformat())
+        sql += ' ORDER BY p.ticker, p.date'
 
-    def _read_ind_long(self, ticker, interval, pairs=None, start=None, end=None) -> pd.DataFrame:
-        stmt = (select(IndicatorData.date, IndicatorData.indicator.label('item'),
-                       IndicatorData.period, IndicatorData.value)
-                .where(IndicatorData.ticker == ticker, IndicatorData.freq == interval)
-                .order_by(IndicatorData.date))
-        if pairs is not None:
-            stmt = stmt.where(tuple_(IndicatorData.indicator, IndicatorData.period).in_(pairs))
-        stmt = self._date_filter(stmt, IndicatorData.date, start, end)
-        return pd.read_sql(stmt, self.engine)[['date', 'item', 'period', 'value']]
+        connection = self.engine.raw_connection()
+        try:
+            rows = connection.cursor().execute(sql, params).fetchall()
+        finally:
+            connection.close()
+        columns = ['ticker', 'date'] + list(price_cols) + list(tech_cols)
+        df = pd.DataFrame(rows, columns=columns)
+        if df.empty:
+            return df.set_index(['ticker', 'date'])
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        df = df.set_index(['ticker', 'date'])
+        value_cols = list(price_cols) + list(tech_cols)
+        return df.astype({c: 'float64' for c in value_cols if df[c].dtype == object})
+
+    @staticmethod
+    def _wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
+        """(ticker, date) wide frame -> long [ticker, date, item, period, value].
+
+        Price columns become period-0 items and keep their NaNs; calculated
+        columns drop NaNs (matching the stored-rows-only long contract)."""
+        if df.empty:
+            return pd.DataFrame(columns=['ticker', 'date', 'item', 'period', 'value'])
+        parsed = {c: (c, 0) if c in PRICE_COLUMNS else parse_column(c, strict=False)
+                  for c in df.columns}
+        long = (df.reset_index()
+                .melt(id_vars=['ticker', 'date'], var_name='column', value_name='value'))
+        keep_na = long['column'].isin(PRICE_COLUMNS)
+        long = long[keep_na | long['value'].notna()]
+        long['item'] = long['column'].map(lambda c: parsed[c][0])
+        long['period'] = long['column'].map(lambda c: parsed[c][1])
+        return (long[['ticker', 'date', 'item', 'period', 'value']]
+                .sort_values(['ticker', 'item', 'period', 'date'], ignore_index=True))
 
     @staticmethod
     def _date_filter(stmt, column, start, end):
@@ -687,37 +856,6 @@ class DBManager:
             stmt = stmt.where(column <= pd.to_datetime(end).date())
         return stmt
 
-    @staticmethod
-    def _shape(price: pd.DataFrame, calc_long: pd.DataFrame, wide: bool) -> pd.DataFrame:
-        """Assemble price (wide, date-indexed) + calc rows into the output format."""
-        has_price = price is not None and not price.empty
-        has_calc = calc_long is not None and not calc_long.empty
-
-        if wide:
-            parts = []
-            if has_price:
-                parts.append(price)
-            if has_calc:
-                pivot = calc_long.pivot(index='date', columns=['item', 'period'],
-                                        values='value').sort_index(axis=1)
-                pivot.columns = [item if not period else f'{item}_{period}'
-                                 for item, period in pivot.columns]
-                parts.append(pivot)
-            if not parts:
-                return pd.DataFrame()
-            return pd.concat(parts, axis=1).sort_index()
-
-        parts = []
-        if has_price:
-            parts.append(price.reset_index()
-                         .melt(id_vars='date', var_name='item', value_name='value')
-                         .assign(period=0))
-        if has_calc:
-            parts.append(calc_long)
-        if not parts:
-            return pd.DataFrame(columns=['date', 'item', 'period', 'value'])
-        long = pd.concat(parts, ignore_index=True)[['date', 'item', 'period', 'value']]
-        return long.sort_values(['item', 'period', 'date'], ignore_index=True)
 
     # ------------------------------------------------------------------ #
     # EDGAR ingestion
@@ -752,6 +890,81 @@ class DBManager:
         return counts
 
     # ------------------------------------------------------------------ #
+    # derived fundamentals
+    # ------------------------------------------------------------------ #
+
+    def add_fundamentals(self, df: pd.DataFrame) -> int:
+        """Upsert derived fundamental rows [ticker, date, item, value,
+        fiscal_year, fiscal_quarter] (late statements revise in place)."""
+        if df is None or df.empty:
+            return 0
+        cols = ['ticker', 'date', 'item', 'value', 'fiscal_year', 'fiscal_quarter']
+        sql = (f'INSERT INTO fundamental_data ({", ".join(cols)}) '
+               f'VALUES ({", ".join("?" * len(cols))}) '
+               f'ON CONFLICT(ticker, date, item) DO UPDATE SET value=excluded.value, '
+               f'fiscal_year=excluded.fiscal_year, fiscal_quarter=excluded.fiscal_quarter')
+        connection = self.engine.raw_connection()
+        try:
+            cursor = connection.cursor()
+            cursor.executemany(sql, self._tuple_rows(df[cols]))
+            connection.commit()
+            n = cursor.rowcount
+        finally:
+            connection.close()
+        logger.info('fundamental_data: %d row(s) upserted', n)
+        return n
+
+    def get_fundamentals(self, ticker, items: list = None, start=None, end=None,
+                         wide: bool = True, daily: bool = False,
+                         stale_limit_days: int = 120) -> pd.DataFrame:
+        """Derived fundamental items, point-in-time by filed date.
+
+        Default: observation rows (one per filed date), wide pivots items to
+        columns. ``daily=True`` (always wide) aligns each item onto the
+        stored trading dates with a grouped backward as-of join -- values go
+        NaN once older than ``stale_limit_days``; observations before
+        ``start`` still fill forward into the window. Single-ticker input
+        drops the ticker level/column.
+        """
+        single = isinstance(ticker, str)
+        tickers = [ticker] if single else list(ticker)
+        if not tickers:
+            return pd.DataFrame()
+        stmt = (select(FundamentalData).where(FundamentalData.ticker.in_(tickers))
+                .order_by(FundamentalData.ticker, FundamentalData.date))
+        if items is not None:
+            stmt = stmt.where(FundamentalData.item.in_(items))
+        if not daily:  # daily needs pre-start observations to fill forward
+            stmt = self._date_filter(stmt, FundamentalData.date, start, end)
+        else:
+            stmt = self._date_filter(stmt, FundamentalData.date, None, end)
+        df = pd.read_sql(stmt, self.engine)
+
+        if not daily:
+            if wide and not df.empty:
+                out = df.pivot(index=['ticker', 'date'], columns='item', values='value')
+                return out.droplevel('ticker') if single else out
+            if single and not df.empty:
+                df = df.drop(columns='ticker')
+            return df
+
+        if df.empty:
+            return pd.DataFrame()
+        obs = df.pivot(index=['ticker', 'date'], columns='item', values='value').reset_index()
+        obs['ts'] = pd.to_datetime(obs['date'])
+        trading = self.get_price_data(tickers, 'daily', start, end)
+        if trading.empty:
+            return pd.DataFrame()
+        left = trading.reset_index()[['ticker', 'date']]
+        left['ts'] = pd.to_datetime(left['date'])
+        merged = pd.merge_asof(left.sort_values('ts', kind='stable'),
+                               obs.drop(columns='date').sort_values('ts', kind='stable'),
+                               on='ts', by='ticker', direction='backward',
+                               tolerance=pd.Timedelta(days=stale_limit_days))
+        out = merged.drop(columns='ts').set_index(['ticker', 'date']).sort_index()
+        return out.droplevel('ticker') if single else out
+
+    # ------------------------------------------------------------------ #
     # EDGAR queries
     # ------------------------------------------------------------------ #
 
@@ -767,7 +980,11 @@ class DBManager:
     def get_filings_meta(self, ticker, form: str = None) -> pd.DataFrame:
         """filings_data rows for a ticker, newest first."""
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_filings_meta, ticker, form=form)
+            stmt = (select(FilingsData).where(FilingsData.ticker.in_(list(ticker)))
+                    .order_by(FilingsData.ticker, FilingsData.filing_date.desc()))
+            if form is not None:
+                stmt = stmt.where(FilingsData.form_type == form)
+            return pd.read_sql(stmt, self.engine)
         stmt = (select(FilingsData).where(FilingsData.ticker == ticker)
                 .order_by(FilingsData.filing_date.desc()))
         if form is not None:
@@ -777,7 +994,11 @@ class DBManager:
     def get_form4(self, ticker, start=None, end=None) -> pd.DataFrame:
         """Insider transactions, oldest first."""
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_form4, ticker, start=start, end=end)
+            stmt = (select(Form4Data).where(Form4Data.ticker.in_(list(ticker)))
+                    .order_by(Form4Data.ticker, Form4Data.transaction_date,
+                              Form4Data.accession_number, Form4Data.seq))
+            stmt = self._date_filter(stmt, Form4Data.transaction_date, start, end)
+            return pd.read_sql(stmt, self.engine)
         stmt = (select(Form4Data).where(Form4Data.ticker == ticker)
                 .order_by(Form4Data.transaction_date, Form4Data.accession_number,
                           Form4Data.seq))
@@ -796,16 +1017,21 @@ class DBManager:
         level (wide) or 'ticker' column (long).
         """
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_income, ticker, items=items,
-                                       interval=interval, wide=wide)
+            stmt = (select(IncomeData).where(IncomeData.ticker.in_(list(ticker)))
+                    .order_by(IncomeData.ticker, IncomeData.fiscal_year,
+                              IncomeData.fiscal_quarter))
+            stmt = self._statement_filters(stmt, IncomeData, items, interval)
+            df = pd.read_sql(stmt, self.engine)
+            if wide and not df.empty:
+                pivot = df.pivot(index=['ticker', 'fiscal_year', 'fiscal_quarter'],
+                                 columns='item', values='value')
+                if interval == 'annual':
+                    pivot.index = pivot.index.droplevel('fiscal_quarter')
+                return pivot
+            return df
         stmt = (select(IncomeData).where(IncomeData.ticker == ticker)
                 .order_by(IncomeData.fiscal_year, IncomeData.fiscal_quarter))
-        if items is not None:
-            stmt = stmt.where(IncomeData.item.in_(items))
-        if interval == 'quarterly':
-            stmt = stmt.where(IncomeData.fiscal_quarter > 0)
-        elif interval == 'annual':
-            stmt = stmt.where(IncomeData.fiscal_quarter == 0)
+        stmt = self._statement_filters(stmt, IncomeData, items, interval)
         df = pd.read_sql(stmt, self.engine)
         if wide and not df.empty:
             pivot = df.pivot(index=['fiscal_year', 'fiscal_quarter'],
@@ -814,6 +1040,16 @@ class DBManager:
                 pivot.index = pivot.index.get_level_values('fiscal_year')
             return pivot
         return df
+
+    @staticmethod
+    def _statement_filters(stmt, model, items, interval):
+        if items is not None:
+            stmt = stmt.where(model.item.in_(items))
+        if interval == 'quarterly':
+            stmt = stmt.where(model.fiscal_quarter > 0)
+        elif interval == 'annual':
+            stmt = stmt.where(model.fiscal_quarter == 0)
+        return stmt
 
     def get_balance(self, ticker, items: list = None, start=None, end=None,
                     wide: bool = False) -> pd.DataFrame:
@@ -824,8 +1060,15 @@ class DBManager:
         level (wide -> (ticker, date)) or 'ticker' column (long).
         """
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_balance, ticker, items=items,
-                                       start=start, end=end, wide=wide)
+            stmt = (select(BalanceData).where(BalanceData.ticker.in_(list(ticker)))
+                    .order_by(BalanceData.ticker, BalanceData.date))
+            if items is not None:
+                stmt = stmt.where(BalanceData.item.in_(items))
+            stmt = self._date_filter(stmt, BalanceData.date, start, end)
+            df = pd.read_sql(stmt, self.engine)
+            if wide and not df.empty:
+                return df.pivot(index=['ticker', 'date'], columns='item', values='value')
+            return df
         stmt = (select(BalanceData).where(BalanceData.ticker == ticker)
                 .order_by(BalanceData.date))
         if items is not None:
@@ -849,8 +1092,18 @@ class DBManager:
         level (wide) or 'ticker' column (long).
         """
         if not isinstance(ticker, str):
-            return self._stack_tickers(self.get_cashflow, ticker, items=items,
-                                       derived=derived, wide=wide)
+            stmt = (select(CashflowData).where(CashflowData.ticker.in_(list(ticker)))
+                    .order_by(CashflowData.ticker, CashflowData.end_date,
+                              CashflowData.duration_days))
+            if items is not None:
+                stmt = stmt.where(CashflowData.item.in_(items))
+            if derived is not None:
+                stmt = stmt.where(CashflowData.derived == derived)
+            df = pd.read_sql(stmt, self.engine)
+            if wide and not df.empty:
+                return df.pivot(index=['ticker', 'start_date', 'end_date'],
+                                columns='item', values='value')
+            return df
         stmt = (select(CashflowData).where(CashflowData.ticker == ticker)
                 .order_by(CashflowData.end_date, CashflowData.duration_days))
         if items is not None:

@@ -1,9 +1,13 @@
-"""Derived metric calculators for price data.
+"""Technical indicator calculators (moved from findata/database/technical_calculators.py).
 
 Stateless module-level functions -- one per indicator -- so each can be called
 directly with whatever period(s) are wanted. Every function takes a
 single-(interval, ticker) OHLCV frame indexed by date (columns open, high,
 low, close, volume) and returns a Series or DataFrame aligned to that index.
+
+The bottom of the module wraps each function in a :class:`TechnicalCalculator`
+carrying registry metadata (outputs, default windows, meaning, FE treatment) --
+see findata/preprocess/calculators/base.py for the registry consumers.
 
 Seeding
 -------
@@ -23,6 +27,9 @@ for the new dates are exact.
 
 import numpy as np
 import pandas as pd
+
+from findata.preprocess.calculators.base import (Calculator, OutputSpec,
+                                                 register)
 
 EMA_WINDOWS = {
     'ema_close': [6, 12, 26, 52, 104],
@@ -135,7 +142,7 @@ def bollinger(df: pd.DataFrame, period: int = 20, num_std: float = 2.0) -> pd.Da
 def stochastic(df: pd.DataFrame, period: int = 14) -> pd.Series:
     low_n = df['low'].rolling(period).min()
     high_n = df['high'].rolling(period).max()
-    return 100 * (df['close'] - low_n) / (high_n - low_n)
+    return (100 * (df['close'] - low_n) / (high_n - low_n)).rename('stochastic')
 
 
 def atr(df: pd.DataFrame, period: int = 14, seed: pd.Series = None) -> pd.Series:
@@ -243,6 +250,11 @@ INDICATOR_OUTPUTS = {
     'cmf': ['cmf'],
 }
 
+# legacy aliases previously re-exported through findata.configs
+DATA_MAP = INDICATOR_OUTPUTS
+TECHNICAL_WINDOWS = {k: v[0] if isinstance(v, list) else v
+                     for k, v in INDICATOR_WINDOWS.items()}
+
 
 def calculate_all(ohlcv: pd.DataFrame, seeds: dict = None, **overrides) -> pd.DataFrame:
     """Compute every EMA and indicator in one frame.
@@ -327,44 +339,130 @@ def build_seeds(calc_df: pd.DataFrame) -> dict:
     return seeds
 
 
-if __name__ == '__main__':
-    # Seeding efficacy check: cold-start the full AAPL daily history, then
-    # seed from the last bar of 2019 and recompute 2020-onward only. The two
-    # results should agree to numerical noise.
-    from yf import YahooFinance
+# ---------------------------------------------------------------------------
+# Calculator wrappers + registry metadata
+# ---------------------------------------------------------------------------
 
-    CUTOFF = pd.Timestamp('2020-01-01').date()
-    WARMUP_BARS = 150  # trailing bars so rolling-window indicators are exact
+class TechnicalCalculator(Calculator):
+    """One indicator family wrapped with registry metadata.
 
-    print('Pulling full daily history for AAPL...')
-    data = YahooFinance('AAPL').request_ticker_financials()
-    prices = data['prices'].xs(('daily', 'AAPL'))
+    ``calculate`` forwards to the module-level function unchanged, so results
+    are identical to calling it directly. ``default_params['periods']`` are
+    the windows stored by default; any other period is equally computable.
+    """
 
-    full = calculate_all(prices)
-    print(f'Cold-start: {full.shape[0]} rows x {full.shape[1]} columns '
-          f'({prices.index[0]} -> {prices.index[-1]})')
+    family = 'technical'
+    group = 'technical.core'
 
-    history = full[full.index < CUTOFF]
-    seeds = build_seeds(history)
-    seed_date = history.index[-1]
-    seed_pos = prices.index.get_loc(seed_date)
-    window = prices.iloc[max(seed_pos - WARMUP_BARS, 0):]
+    def __init__(self, name, func, outputs, periods, description='',
+                 seeded=(), requires=('open', 'high', 'low', 'close', 'volume')):
+        self.name = name
+        self._func = func
+        self.outputs = tuple(outputs)
+        self.default_params = {'periods': [int(p) for p in _as_list(periods)]}
+        self.description = description
+        self.seeded = tuple(seeded)
+        self.requires = tuple(requires)
 
-    seeded = calculate_all(window, seeds=seeds)
-    seeded = seeded[seeded.index >= CUTOFF]
-    print(f'Seeded from {seed_date}: recomputed {seeded.shape[0]} rows '
-          f'({len(seeds)} seed values, {WARMUP_BARS} warmup bars)')
+    def calculate(self, data, **params):
+        return self._func(data, **params)
 
-    expected = full[full.index >= CUTOFF]
-    diff = (expected - seeded).abs()
-    summary = pd.DataFrame({
-        'max_abs_diff': diff.max(),
-        'mean_abs_diff': diff.mean(),
-        'last_full': expected.iloc[-1],
-        'last_seeded': seeded.iloc[-1],
-    }).sort_values('max_abs_diff', ascending=False)
 
-    with pd.option_context('display.max_rows', None, 'display.width', 200,
-                           'display.float_format', '{:,.6g}'.format):
-        print('\nFull-history vs seeded recomputation (2020 onward):')
-        print(summary)
+def _ema_close(df, period, seed=None):
+    return ema(df['close'], period, seed=seed).rename('ema_close')
+
+
+def _ema_obv(df, period, seed=None):
+    return ema(obv(df), period, seed=seed).rename('ema_obv')
+
+
+def _ema_ad(df, period, seed=None):
+    return ema(ad(df), period, seed=seed).rename('ema_ad')
+
+
+_PRICE_NOTE = 'price-scale level: overlay on price; model via ratios to close, not raw levels'
+
+register(TechnicalCalculator(
+    'rsi', rsi, periods=INDICATOR_WINDOWS['rsi'],
+    description='Relative Strength Index: average gain vs average loss over the window.',
+    outputs=[OutputSpec('rsi', 'Ratio of average gains to average losses mapped to [0, 100]. '
+                        'Mean-reverting overbought/oversold oscillator; >70 / <30 flag stretched moves.',
+                        (0, 100), 'minmax', 'stationary by construction; map to [-1, 1]; its EMA velocity carries the momentum signal')]))
+register(TechnicalCalculator(
+    'bollinger', bollinger, periods=INDICATOR_WINDOWS['bollinger'],
+    description='Bollinger bands: rolling SMA of close with a +/-2 std envelope.',
+    outputs=[OutputSpec('bb_middle', 'Rolling SMA of close - the band centerline.', None, 'price', _PRICE_NOTE),
+             OutputSpec('bb_upper', 'Centerline + 2 rolling std of close.', None, 'price', _PRICE_NOTE),
+             OutputSpec('bb_lower', 'Centerline - 2 rolling std of close.', None, 'price',
+                        _PRICE_NOTE + '; bandwidth (upper-lower)/middle and %b are the model-ready derivatives')]))
+register(TechnicalCalculator(
+    'stochastic', stochastic, periods=INDICATOR_WINDOWS['stochastic'],
+    description='Stochastic %K: close location inside the rolling high-low range.',
+    outputs=[OutputSpec('stochastic', 'Position of close within the rolling high-low range, [0, 100]. '
+                        'Fast mean-reverting oscillator.', (0, 100), 'minmax', 'map to [-1, 1]')]))
+register(TechnicalCalculator(
+    'adx', adx, periods=INDICATOR_WINDOWS['adx'], seeded=('plus_dm', 'minus_dm', 'atr', 'adx'),
+    description='Directional-movement family: smoothed directional moves, ATR, DI lines, ADX trend strength.',
+    outputs=[OutputSpec('plus_dm', 'EWM-smoothed upward directional move (price scale).', None, 'price',
+                        'building block; usually consumed via plus_di'),
+             OutputSpec('minus_dm', 'EWM-smoothed downward directional move (price scale).', None, 'price',
+                        'building block; usually consumed via minus_di'),
+             OutputSpec('atr', 'Average True Range: EWM of true range - price-scale volatility.', None, 'log_standard',
+                        'normalize by close (atr/close) for cross-sectional comparability'),
+             OutputSpec('plus_di', 'Upward pressure: 100 * plus_dm / atr, ~[0, 100].', (0, 100), 'minmax', ''),
+             OutputSpec('minus_di', 'Downward pressure: 100 * minus_dm / atr, ~[0, 100].', (0, 100), 'minmax', ''),
+             OutputSpec('adx', 'Direction-free trend strength: EWM of 100*|DI+ - DI-|/(DI+ + DI-), [0, 100]. '
+                        '>25 marks a trending regime.', (0, 100), 'minmax', 'regime feature, not a direction signal')]))
+register(TechnicalCalculator(
+    'cci', cci, periods=INDICATOR_WINDOWS['cci'],
+    description='Commodity Channel Index: typical-price deviation scaled by 0.015 * rolling MAD.',
+    outputs=[OutputSpec('cci', 'Deviation of typical price from its SMA in MAD units. Unbounded but '
+                        'mostly within +/-300; extreme-move detector.', (-300, 300), 'robust', 'winsorize tails')]))
+register(TechnicalCalculator(
+    'willr', willr, periods=INDICATOR_WINDOWS['willr'],
+    description='Williams %R: inverted stochastic positioning of close.',
+    outputs=[OutputSpec('willr', 'Close position within the rolling high-low range mapped to [-100, 0].',
+                        (-100, 0), 'minmax', 'map to [-1, 1]')]))
+register(TechnicalCalculator(
+    'aroon', aroon, periods=INDICATOR_WINDOWS['aroon'],
+    description='Aroon: recency of the rolling high/low.',
+    outputs=[OutputSpec('aroon_up', 'Bars since the window high rescaled to [0, 100]; 100 = fresh high.',
+                        (0, 100), 'minmax', 'trend-freshness; step-like, consider rank'),
+             OutputSpec('aroon_down', 'Bars since the window low rescaled to [0, 100]; 100 = fresh low.',
+                        (0, 100), 'minmax', 'trend-freshness; step-like, consider rank')]))
+register(TechnicalCalculator(
+    'mfi', mfi, periods=INDICATOR_WINDOWS['mfi'],
+    description='Money Flow Index: volume-weighted RSI on typical price.',
+    outputs=[OutputSpec('mfi', 'RSI construction on volume-weighted typical-price flow, [0, 100]. '
+                        'Flags stretched moves lacking volume support.', (0, 100), 'minmax', 'map to [-1, 1]')]))
+register(TechnicalCalculator(
+    'cmf', cmf, periods=INDICATOR_WINDOWS['cmf'],
+    description='Chaikin Money Flow: within-bar close positioning weighted by volume.',
+    outputs=[OutputSpec('cmf', 'Volume-weighted balance of closes inside their bars summed over the window, '
+                        '[-1, 1]. Buying vs selling pressure.', (-1, 1), 'standard', 'already bounded and centered')]))
+register(TechnicalCalculator(
+    'obv', obv, periods=[0], seeded=('obv',),
+    description='On-Balance Volume: running sum of signed volume.',
+    outputs=[OutputSpec('obv', 'Cumulative signed volume. Unbounded trending level - the flow analogue of price.',
+                        None, 'log_standard', 'non-stationary; model EMA velocities/z-scores, not the level')]))
+register(TechnicalCalculator(
+    'ad', ad, periods=[0], seeded=('ad',),
+    description='Accumulation/Distribution line: running sum of money-flow volume.',
+    outputs=[OutputSpec('ad', 'Cumulative money-flow volume weighted by within-bar close position. '
+                        'Unbounded level like OBV.', None, 'log_standard',
+                        'non-stationary; model EMA velocities/z-scores, not the level')]))
+register(TechnicalCalculator(
+    'ema_close', _ema_close, periods=EMA_WINDOWS['ema_close'], seeded=('ema_close',),
+    description='Exponential moving averages of close.',
+    outputs=[OutputSpec('ema_close', 'EMA of close (price scale). Trend reference line.', None, 'price',
+                        _PRICE_NOTE + '; model log(close/ema) and EMA-pair velocities')]))
+register(TechnicalCalculator(
+    'ema_obv', _ema_obv, periods=EMA_WINDOWS['ema_obv'], seeded=('ema_obv',),
+    description='Exponential moving averages of OBV.',
+    outputs=[OutputSpec('ema_obv', 'EMA of the OBV flow level.', None, 'log_standard',
+                        'consumed via velocity z-scores in the volume features')]))
+register(TechnicalCalculator(
+    'ema_ad', _ema_ad, periods=EMA_WINDOWS['ema_ad'], seeded=('ema_ad',),
+    description='Exponential moving averages of the A/D line.',
+    outputs=[OutputSpec('ema_ad', 'EMA of the A/D flow level.', None, 'log_standard',
+                        'consumed via velocity z-scores in the volume features')]))

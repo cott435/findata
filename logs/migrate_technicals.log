@@ -1,0 +1,40 @@
+2026-07-22 20:56:20,381 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/migrate_technicals.log
+2026-07-22 20:56:20,383 INFO    scripts.migrate_technicals | DB scratch_p3.db: 0.04 GiB, 116.5 GiB free
+2026-07-22 20:56:20,470 INFO    findata.database.db_manager | technical_data: adding column stoch_d_14
+2026-07-22 20:56:20,470 INFO    findata.database.db_manager | technical_data: adding column stoch_k_14
+2026-07-22 20:56:20,483 INFO    scripts.migrate_technicals | Migrating 3 ticker(s) (0 already done) into 32 columns
+2026-07-22 20:56:20,865 INFO    scripts.migrate_technicals | Migration pass wrote/updated 32,472 row(s)
+2026-07-22 20:56:21,590 INFO    scripts.migrate_technicals | Global per-combo count check (full scans)...
+2026-07-22 20:56:21,733 INFO    scripts.migrate_technicals | Count check PASSED (32 columns, 497,293 stored values)
+2026-07-22 20:56:21,733 INFO    scripts.migrate_technicals | Parity verification passed.
+2026-07-22 20:56:21,733 INFO    scripts.migrate_technicals | Additive pass complete. Rerun with --finalize to swap.
+2026-07-22 20:57:17,074 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/migrate_technicals.log
+2026-07-22 20:57:17,075 INFO    scripts.migrate_technicals | DB scratch_p3.db: 0.05 GiB, 116.5 GiB free
+2026-07-22 20:57:17,123 INFO    scripts.migrate_technicals | Migrating 0 ticker(s) (3 already done) into 32 columns
+2026-07-22 20:57:17,123 INFO    scripts.migrate_technicals | Migration pass wrote/updated 0 row(s)
+2026-07-22 20:57:17,841 INFO    scripts.migrate_technicals | Global per-combo count check (full scans)...
+2026-07-22 20:57:17,986 INFO    scripts.migrate_technicals | Count check PASSED (32 columns, 497,293 stored values)
+2026-07-22 20:57:17,986 INFO    scripts.migrate_technicals | Parity verification passed.
+2026-07-22 20:57:17,987 INFO    scripts.migrate_technicals | Renamed scratch_p3.db -> scratch_p3.db.pre_migration
+2026-07-22 20:57:18,003 INFO    scripts.migrate_technicals | Finalized: 0.05 GiB -> 0.01 GiB (backup kept at scratch_p3.db.pre_migration)
+2026-07-22 20:57:18,011 INFO    scripts.migrate_technicals | technicals_seeded backfilled for 3 ticker(s)
+2026-07-22 21:08:13,599 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/migrate_technicals.log
+2026-07-22 21:08:13,602 INFO    scripts.migrate_technicals | DB stock.db: 10.19 GiB, 116.5 GiB free
+2026-07-22 21:08:55,700 INFO    findata.database.db_manager | technical_data: adding column stoch_d_14
+2026-07-22 21:08:55,701 INFO    findata.database.db_manager | technical_data: adding column stoch_k_14
+2026-07-22 21:09:45,831 INFO    scripts.migrate_technicals | Migrating 856 ticker(s) (0 already done) into 32 columns
+2026-07-22 21:12:48,033 INFO    scripts.migrate_technicals | Migration pass wrote/updated 7,817,338 row(s)
+2026-07-22 21:12:55,366 INFO    scripts.migrate_technicals | Global per-combo count check (full scans)...
+2026-07-22 21:13:59,846 INFO    scripts.migrate_technicals | Count check PASSED (32 columns, 118,867,495 stored values)
+2026-07-22 21:13:59,847 INFO    scripts.migrate_technicals | Parity verification passed.
+2026-07-22 21:13:59,848 INFO    scripts.migrate_technicals | Additive pass complete. Rerun with --finalize to swap.
+2026-07-22 21:15:49,364 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/migrate_technicals.log
+2026-07-22 21:15:49,368 INFO    scripts.migrate_technicals | DB stock.db: 11.51 GiB, 115.2 GiB free
+2026-07-22 21:17:15,524 INFO    scripts.migrate_technicals | Migrating 0 ticker(s) (856 already done) into 32 columns
+2026-07-22 21:17:15,524 INFO    scripts.migrate_technicals | Migration pass wrote/updated 0 row(s)
+2026-07-22 21:17:18,189 INFO    scripts.migrate_technicals | Global per-combo count check (full scans)...
+2026-07-22 21:18:19,620 INFO    scripts.migrate_technicals | Count check PASSED (32 columns, 118,867,495 stored values)
+2026-07-22 21:18:19,620 INFO    scripts.migrate_technicals | Parity verification passed.
+2026-07-22 21:18:19,623 INFO    scripts.migrate_technicals | Renamed stock.db -> stock.db.pre_migration
+2026-07-22 21:18:24,147 INFO    scripts.migrate_technicals | Finalized: 11.51 GiB -> 1.62 GiB (backup kept at stock.db.pre_migration)
+2026-07-22 21:18:24,167 INFO    scripts.migrate_technicals | technicals_seeded backfilled for 856 ticker(s)

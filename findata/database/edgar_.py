@@ -104,6 +104,8 @@ INCOME_ITEMS = {
     'eps_diluted': ['EarningsPerShareDiluted'],
     'shares_basic': ['WeightedAverageNumberOfSharesOutstandingBasic'],
     'shares_diluted': ['WeightedAverageNumberOfDilutedSharesOutstanding'],
+    'interest_expense': ['InterestExpense', 'InterestExpenseDebt',
+                         'InterestAndDebtExpense', 'InterestExpenseNonoperating'],
 }
 
 # averages are not additive across quarters -- never derive a Q4 for these
@@ -125,6 +127,8 @@ BALANCE_ITEMS = {
     'goodwill': ['Goodwill'],
     'long_term_debt': ['LongTermDebtNoncurrent', 'LongTermDebt',
                        'LongTermDebtAndCapitalLeaseObligations'],
+    'short_term_debt': ['DebtCurrent', 'LongTermDebtCurrent', 'ShortTermBorrowings',
+                        'LongTermDebtAndCapitalLeaseObligationsCurrent'],
     'shares_outstanding': ['CommonStockSharesOutstanding', 'EntityCommonStockSharesOutstanding'],
 }
 
@@ -391,12 +395,20 @@ class EdgarPipeline:
     def __init__(self, db: DBManager = None, sec_dir=None, identity: str = EDGAR_IDENTITY,
                  parse_extra_data: bool = False, forms=('10-K', '10-Q', '8-K', '4'),
                  max_concurrency: int = 4, requests_per_second: float = 8.0,
-                 batch_size: int = 2, decumulate_cashflow: bool = False):
+                 batch_size: int = 2, decumulate_cashflow: bool = False,
+                 mode: str = 'full'):
+        """``mode='numeric'`` fetches only the numerical data -- XBRL facts
+        (always fetched regardless of forms) plus Form 4 transactions -- by
+        restricting ``forms`` to ('4',): no 10-K/10-Q/8-K downloads, no text
+        extraction, no disk writes. 'full' (default) behaves as before."""
+        if mode not in ('full', 'numeric'):
+            raise ValueError("mode must be 'full' or 'numeric'")
         set_identity(identity)
         self.db = db or DBManager()
         self.sec_dir = Path(sec_dir) if sec_dir is not None else Path(SEC_DIR)
         self.parse_extra_data = parse_extra_data
-        self.forms = tuple(forms)
+        self.mode = mode
+        self.forms = ('4',) if mode == 'numeric' else tuple(forms)
         self.max_concurrency = max_concurrency
         self.requests_per_second = requests_per_second
         self.batch_size = batch_size

@@ -24,7 +24,10 @@ from bokeh.models import CustomJS, GlyphRenderer, RangeTool
 from holoviews import opts
 
 hv.extension('bokeh')
-pn.extension()
+# 'tabulator' must be declared before serving so its JS bundle ships with the
+# initial page; without it, Tabulator tables (workbench Compare/PCA/Market
+# tabs) render blank when a dynamic tab is first shown.
+pn.extension('tabulator')
 
 NORMALIZATIONS = ("raw", "z-score", "min-max", "demean")
 

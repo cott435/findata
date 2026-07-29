@@ -1,0 +1,4 @@
+2026-07-28 21:47:41,597 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/init_edgar.log
+2026-07-28 21:49:28,243 INFO    findata.database.edgar_ | EDGAR run: 800 ticker(s), forms=('10-K', '10-Q', '8-K', '4'), extra_sections=False
+2026-07-28 21:49:29,424 INFO    findata.database.edgar_ | BAH: 1065 filing(s) to fetch (0 already stored)
+2026-07-28 21:49:31,779 INFO    findata.database.edgar_ | KR: 3106 filing(s) to fetch (0 already stored)

@@ -1,10 +1,13 @@
 """ORM table definitions for the stock_data SQLite database.
 
-YF side: ticker_meta, price_data, ema_data, indicator_data.
-EDGAR side: filings_data (text-section index), form4_data (insider trades),
-and the three financial-statement tables -- separate because their natural
-keys differ: income is keyed by fiscal period, balance by point-in-time
-date, cash flow by cumulative (start, end) window. No logic lives here.
+YF side: ticker_meta, price_data, technical_data (wide: one column per
+item_period; ema_data/indicator_data are the legacy long tables the
+migration script folds into it). EDGAR side: filings_data (text-section
+index), form4_data (insider trades), and the three financial-statement
+tables -- separate because their natural keys differ: income is keyed by
+fiscal period, balance by point-in-time date, cash flow by cumulative
+(start, end) window. fundamental_data holds derived point-in-time ratios.
+No logic lives here.
 """
 
 from datetime import datetime
@@ -28,6 +31,7 @@ class TickerMeta(Base):
     last_filings_date = Column(Date)   # newest 10-K/10-Q/8-K filing processed
     last_form4_date = Column(Date)     # newest Form 4 filing processed
     yf_seeded = Column(Boolean, default=False)
+    technicals_seeded = Column(Boolean, default=False)  # full indicator history stored
     edgar_seeded = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now)
@@ -49,28 +53,55 @@ class PriceData(Base):
     split_ratio = Column(Float, default=1.0)
 
 
-class EmaData(Base):
-    """EMAs in long format so new (period, base) combos need no migration."""
-    __tablename__ = 'ema_data'
+def _default_technical_columns() -> dict:
+    """One REAL column per registry-default (item, period), so the ORM's view
+    of technical_data never drifts from the calculator registry. Runtime-added
+    windows live as extra columns discovered via PRAGMA table_info."""
+    from findata.preprocess.calculators.technical import (EMA_WINDOWS,
+                                                          INDICATOR_OUTPUTS,
+                                                          INDICATOR_WINDOWS,
+                                                          _as_list)
+    cols = {'obv': Column(Float), 'ad': Column(Float)}
+    for name, periods in INDICATOR_WINDOWS.items():
+        for period in _as_list(periods):
+            for item in INDICATOR_OUTPUTS[name]:
+                cols[f'{item}_{period}'] = Column(Float)
+    for name, periods in EMA_WINDOWS.items():
+        for period in periods:
+            cols[f'{name}_{period}'] = Column(Float)
+    return cols
+
+
+class TechnicalData(Base):
+    """Derived technical items, wide: one row per bar, one column per
+    item_period (rsi_14, ema_close_26, obv, ...). Upserted."""
+    __tablename__ = 'technical_data'
 
     ticker = Column(String, primary_key=True)
     date = Column(Date, primary_key=True)
-    period = Column(Integer, primary_key=True)
-    base = Column(String, primary_key=True)      # 'close' | 'obv' | 'ad'
     interval = Column(String, primary_key=True)  # 'daily' | 'weekly'
-    ema_value = Column(Float)
 
 
-class IndicatorData(Base):
-    """Technical indicators in long format."""
-    __tablename__ = 'indicator_data'
+for _name, _column in _default_technical_columns().items():
+    setattr(TechnicalData, _name, _column)
+
+
+class FundamentalData(Base):
+    """Derived fundamental items (ratios, growth, ...), long format.
+
+    ``date`` is the point-in-time observation date -- the filed_date of the
+    newest statement each value uses -- so forward-filling to trading dates
+    never looks ahead. Upserted (late filings can revise derived values).
+    """
+    __tablename__ = 'fundamental_data'
 
     ticker = Column(String, primary_key=True)
     date = Column(Date, primary_key=True)
-    freq = Column(String, primary_key=True)      # 'daily' | 'weekly'
-    indicator = Column(String, primary_key=True)
-    period = Column(Integer, primary_key=True)   # 0 = no fixed window (obv, ad)
+    item = Column(String, primary_key=True)
     value = Column(Float)
+    fiscal_year = Column(Integer)
+    fiscal_quarter = Column(Integer)
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class FilingsData(Base):

@@ -1,7 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from findata.database.technical_calculators import INDICATOR_WINDOWS, INDICATOR_OUTPUTS
 
 DB_NAME = "stock.db"
 EDGAR_IDENTITY = "Connor ctt7729@gmail.com"
@@ -18,8 +17,49 @@ LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 # third-party loggers that flood INFO; kept at WARNING so our logs stay readable
 _NOISY_LOGGERS = ("edgar", "urllib3", "asyncio", "httpx", "httpcore")
 
-DATA_MAP = INDICATOR_OUTPUTS
-TECHNICAL_WINDOWS = {k:v[0] if isinstance(v, list) else v for k, v in INDICATOR_WINDOWS.items()}
+def __getattr__(name):
+    # DATA_MAP / TECHNICAL_WINDOWS moved to the calculator registry; resolved
+    # lazily here so configs stays stdlib-only at import time (importing the
+    # calculators from the top of this module would recreate the
+    # configs -> calculators -> preprocess -> configs cycle).
+    if name in ('DATA_MAP', 'TECHNICAL_WINDOWS'):
+        from findata.preprocess.calculators import technical
+        return getattr(technical, name)
+    raise AttributeError(f"module 'findata.configs' has no attribute {name!r}")
+
+
+from dataclasses import dataclass as _dataclass
+from dataclasses import field as _field
+
+
+@_dataclass(frozen=True)
+class SavePolicy:
+    """Which calculator groups auto-persist their on-the-fly results.
+
+    Rules map save-policy group keys (a Calculator's ``group``, e.g.
+    'technical.core', 'fundamental.valuation') to booleans; lookup walks the
+    dotted key up ('fundamental.valuation' falls back to 'fundamental'), and
+    ``default`` applies when no rule prefix matches.
+    """
+    rules: dict = _field(default_factory=dict)
+    default: bool = True
+
+    def allows(self, group: str) -> bool:
+        key = group or ''
+        while key:
+            if key in self.rules:
+                return self.rules[key]
+            key = key.rpartition('.')[0]
+        return self.default
+
+
+SAVE_POLICY = SavePolicy(rules={
+    'technical.core': True,     # registry-default windows
+    'technical.custom': True,   # ad-hoc windows requested on the fly
+    'fundamental': True,        # all fundamental.<group> keys inherit this
+    'feature': False,           # engineered FeatureGroup outputs never persist
+})
+
 
 def setup_logging(log_file: str = "findata.log", level=logging.INFO,
                   console: bool = True) -> Path:

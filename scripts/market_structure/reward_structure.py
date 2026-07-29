@@ -26,7 +26,7 @@ from _common import OUT_ROOT, build_parser, load_panel, ms
 
 def obv_velocity(df: pd.DataFrame, fast: int = 12, slow: int = 26) -> pd.Series:
     """OBV EMA-velocity, rolling z-scored (volume.py's zvel construction)."""
-    from findata.database.technical_calculators import ema, obv
+    from findata.preprocess.calculators.technical import ema, obv
     vel = ema(obv(df), fast) - ema(obv(df), slow)
     z = (vel - vel.rolling(slow * 2).mean()) / vel.rolling(slow * 2).std()
     return z.rename("obv_vel")

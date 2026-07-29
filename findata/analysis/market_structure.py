@@ -99,7 +99,7 @@ def indicator_panel(tickers: Iterable[str] | None = None, start: str = "2021-01-
         if callable(indicator):
             func = indicator
         else:
-            from findata.database.technical_calculators import INDICATOR_FUNCS
+            from findata.preprocess.calculators.technical import INDICATOR_FUNCS
             if indicator not in SERIES_INDICATORS:
                 raise ValueError(f"indicator must be 'log_return', a callable, or one of "
                                  f"{SERIES_INDICATORS}; got {indicator!r}")
@@ -492,7 +492,7 @@ def decompose_modes(wide: pd.DataFrame, labels: pd.Series) -> dict:
 
 
 def _obv_velocity(df: pd.DataFrame, fast: int = 12, slow: int = 26) -> pd.Series:
-    from findata.database.technical_calculators import ema, obv
+    from findata.preprocess.calculators.technical import ema, obv
     o = obv(df)
     vel = ema(o, fast) - ema(o, slow)
     z = (vel - vel.rolling(slow * 2).mean()) / vel.rolling(slow * 2).std()
@@ -500,14 +500,14 @@ def _obv_velocity(df: pd.DataFrame, fast: int = 12, slow: int = 26) -> pd.Series
 
 
 def _price_velocity(df: pd.DataFrame, fast: int = 12, slow: int = 26) -> pd.Series:
-    from findata.database.technical_calculators import ema
+    from findata.preprocess.calculators.technical import ema
     vel = ema(df["close"], fast) - ema(df["close"], slow)
     z = (vel - vel.rolling(slow * 2).mean()) / vel.rolling(slow * 2).std()
     return z.rename("price_vel")
 
 
 def _feature_func(name: str):
-    from findata.database.technical_calculators import INDICATOR_FUNCS
+    from findata.preprocess.calculators.technical import INDICATOR_FUNCS
     if name == "log_return":
         return lambda df: np.log(df["close"]).diff()
     if name == "obv_vel":
