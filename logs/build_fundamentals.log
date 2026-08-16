@@ -1,2 +1,42 @@
 2026-07-28 21:44:41,887 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
 2026-07-28 21:46:53,030 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-12 17:38:18,606 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-12 17:39:32,229 INFO    scripts.build_fundamentals | statement + close reads (398 tickers) done in 28.40s
+2026-08-14 12:50:21,147 INFO    scripts.build_fundamentals | fundamental calculators (398 tickers) done in 26519.89s
+2026-08-15 09:17:39,601 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 10:28:27,416 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 10:29:01,248 INFO    scripts.build_fundamentals | statement + close reads (400 tickers) done in 9.60s
+2026-08-15 10:42:39,091 INFO    scripts.build_fundamentals | fundamental calculators (400 tickers) done in 758.27s
+2026-08-15 10:42:44,478 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 10:42:54,446 INFO    scripts.build_fundamentals | statement + close reads (400 tickers) done in 4.59s
+2026-08-15 11:04:49,614 INFO    scripts.build_fundamentals | fundamental calculators (400 tickers) done in 1284.60s
+2026-08-15 11:14:37,573 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 11:14:52,153 INFO    scripts.build_fundamentals | statement + close reads (400 tickers) done in 4.64s
+2026-08-15 11:28:50,217 INFO    scripts.build_fundamentals | fundamental calculators (400 tickers) done in 807.43s
+2026-08-15 11:44:27,759 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 11:44:35,277 INFO    scripts.build_fundamentals | statement + close reads (400 tickers) done in 4.62s
+2026-08-15 12:05:28,746 INFO    scripts.build_fundamentals | fundamental calculators (400 tickers) done in 1222.86s
+2026-08-15 12:49:17,790 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 12:49:31,163 INFO    scripts.build_fundamentals | statement + close reads (800 tickers) done in 10.50s
+2026-08-15 13:01:30,335 INFO    findata.preprocess.calculators.fundamental | Valuation.calculate done in 176.99s
+2026-08-15 13:01:42,325 INFO    findata.preprocess.calculators.fundamental | Profitability.calculate done in 11.99s
+2026-08-15 13:10:41,598 INFO    scripts.build_fundamentals | fundamental calculators (800 tickers) done in 1142.56s
+2026-08-15 14:05:54,860 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-15 14:05:56,187 INFO    findata.database.db_manager | Backfilled last_facts_date for 5 ticker(s) from stored filings
+2026-08-15 14:06:39,418 INFO    scripts.build_fundamentals | statement + close reads (800 tickers) done in 10.78s
+2026-08-15 14:12:57,726 INFO    scripts.build_fundamentals | fundamental calculators (800 tickers) done in 247.79s
+2026-08-16 09:51:19,507 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-16 09:51:32,897 INFO    findata.database.db_manager | Backfilled last_facts_date for 5 ticker(s) from stored filings
+2026-08-16 09:56:48,242 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/build_fundamentals.log
+2026-08-16 09:56:49,708 INFO    findata.database.db_manager | Backfilled last_facts_date for 5 ticker(s) from stored filings
+2026-08-16 09:57:02,565 INFO    scripts.build_fundamentals | statement + close reads (800 tickers) done in 11.08s
+2026-08-16 10:07:40,272 INFO    findata.preprocess.calculators.fundamental | Valuation.calculate done in 111.32s
+2026-08-16 10:08:50,061 INFO    findata.preprocess.calculators.fundamental | Profitability.calculate done in 69.79s
+2026-08-16 10:09:03,258 INFO    findata.preprocess.calculators.fundamental | Growth.calculate done in 13.20s
+2026-08-16 10:09:14,561 INFO    findata.preprocess.calculators.fundamental | Quality.calculate done in 11.30s
+2026-08-16 10:09:16,543 INFO    findata.preprocess.calculators.fundamental | LeverageLiquidity.calculate done in 1.98s
+2026-08-16 10:09:17,621 INFO    findata.preprocess.calculators.fundamental | Efficiency.calculate done in 1.08s
+2026-08-16 10:09:24,615 INFO    findata.preprocess.calculators.fundamental | Surprise.calculate done in 6.99s
+2026-08-16 10:10:40,024 INFO    findata.preprocess.calculators.fundamental | Valuation.calculate done in 3.28s
+2026-08-16 10:16:36,370 INFO    scripts.build_fundamentals | fundamental calculators (800 tickers) done in 1047.21s
+2026-08-16 10:17:05,346 INFO    findata.database.db_manager | fundamental_data: 619863 row(s) upserted

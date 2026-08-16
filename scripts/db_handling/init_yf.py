@@ -29,7 +29,7 @@ from findata.database.ticker_sampling import TickerSampler
 
 logger = logging.getLogger('scripts.init_yf')
 
-DEFAULT_TICKERS = TickerSampler().sample(800, 123)
+DEFAULT_TICKERS = TickerSampler().sample(400, 123)
 
 
 def skip_report(db: DBManager, tickers: list) -> pd.DataFrame:

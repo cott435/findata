@@ -7,12 +7,22 @@ printed) unless --force is given. Interrupted runs are resumable: filings
 already on disk/DB are not refetched.
 
 Run from the project root:
-    python -m scripts.init_edgar --tickers AAPL MSFT [--extra] [--force]
+    python -m scripts.db_handling.init_edgar --tickers AAPL MSFT [--extra] [--force]
         [--min-date 2015-01-01] [--db-path data/stock.db]
+
+Also runnable directly (e.g. `python init_edgar.py` from this directory, or
+an IDE debug config that executes the file rather than the module) -- the
+sys.path bootstrap below makes the ``scripts.db_handling.init_yf`` absolute
+import resolve either way, so this file doesn't need relative imports.
 """
 
 import argparse
 import logging
+import sys
+from pathlib import Path
+
+if __name__ == '__main__' and __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from findata.configs import setup_logging
 from findata.database.db_manager import DBManager
@@ -35,8 +45,11 @@ def main(use_all=False):
     parser.add_argument('--min-date', default=None, help='Oldest filing date to pull (YYYY-MM-DD).')
     parser.add_argument('--rps', type=float, default=8.0, help='Max SEC requests per second.')
     parser.add_argument('--concurrency', type=int, default=4, help='Max in-flight requests.')
-    parser.add_argument('--decumulate-cashflow', action='store_true',
-                        help='Also store de-cumulated single-quarter cash flow rows.')
+    parser.add_argument('--no-validate', action='store_true',
+                        help='Skip the quarterly-coverage check on parsed statements.')
+    parser.add_argument('--grace-years', type=int, default=2,
+                        help="Leading fiscal years per item exempt from the coverage "
+                             "check (early filings are routinely incomplete).")
     args = parser.parse_args()
     setup_logging('init_edgar.log')
     db = DBManager(args.db_path)
@@ -54,10 +67,10 @@ def main(use_all=False):
     if not todo:
         print('\nNothing to seed.')
         return
-
+    #args.data = 'numeric'
     pipeline = EdgarPipeline(db=db, parse_extra_data=args.extra, mode=args.data,
                              max_concurrency=args.concurrency, requests_per_second=args.rps,
-                             decumulate_cashflow=args.decumulate_cashflow)
+                             validate=not args.no_validate, grace_years=args.grace_years)
 
     counts = pipeline.run(todo, force=args.force, min_date=args.min_date)
 

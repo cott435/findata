@@ -23,6 +23,7 @@ class TickerMeta(Base):
     __tablename__ = 'ticker_meta'
 
     ticker = Column(String, primary_key=True)
+    cik = Column(Integer)              # SEC entity id; the join key for EDGAR data
     name = Column(String)
     sector = Column(String)
     industry = Column(String)
@@ -30,6 +31,9 @@ class TickerMeta(Base):
     last_price_date = Column(Date)
     last_filings_date = Column(Date)   # newest 10-K/10-Q/8-K filing processed
     last_form4_date = Column(Date)     # newest Form 4 filing processed
+    last_facts_date = Column(Date)     # when XBRL facts were last fetched/parsed
+    last_fundamentals_date = Column(Date)  # when derived fundamentals were last built
+    inactive_since = Column(Date)      # stopped returning bars (delisted/renamed)
     yf_seeded = Column(Boolean, default=False)
     technicals_seeded = Column(Boolean, default=False)  # full indicator history stored
     edgar_seeded = Column(Boolean, default=False)
@@ -178,18 +182,23 @@ class BalanceData(Base):
 
 
 class CashflowData(Base):
-    """Cash-flow items: cumulative from fiscal-year start, so the period
-    window is the key and duration is stored explicitly. derived=True rows
-    are de-cumulated single quarters (optional pipeline flag)."""
+    """Cash-flow items: issuers report cumulatively from the fiscal-year
+    start, so the period window is the key and duration is stored explicitly.
+
+    Every cumulative window is also stored de-cumulated into a standalone
+    quarter (``derived=True``); ``derived`` is part of the primary key so the
+    as-reported and single-quarter views of the same period coexist. Only the
+    single-quarter rows are summable into trailing-twelve-month figures.
+    """
     __tablename__ = 'cashflow_data'
 
     ticker = Column(String, primary_key=True)
     start_date = Column(Date, primary_key=True)
     end_date = Column(Date, primary_key=True)
     item = Column(String, primary_key=True)
+    derived = Column(Boolean, primary_key=True, default=False)
     value = Column(Float)
     duration_days = Column(Integer)
     fiscal_year = Column(Integer)
-    fiscal_quarter = Column(Integer)             # quarter the window ends in; 0 = full year
+    fiscal_quarter = Column(Integer)             # quarter the window ends in
     filed_date = Column(Date)
-    derived = Column(Boolean, default=False)

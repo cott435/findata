@@ -13,7 +13,7 @@ import logging
 import re
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -107,7 +107,12 @@ class DBManager:
         """Add columns introduced after a table already exists on disk
         (create_all only creates missing tables, it never alters them)."""
         added = {'ticker_meta': {'last_form4_date': 'DATE',
-                                 'technicals_seeded': 'BOOLEAN'}}
+                                 'technicals_seeded': 'BOOLEAN',
+                                 'last_facts_date': 'DATE',
+                                 'last_fundamentals_date': 'DATE',
+                                 'inactive_since': 'DATE',
+                                 'cik': 'INTEGER'}}
+        new_columns = set()
         with self.engine.begin() as conn:
             for table, columns in added.items():
                 existing = {row[1] for row in
@@ -117,6 +122,82 @@ class DBManager:
                         logger.info('Migrating %s: adding column %s', table, column)
                         conn.exec_driver_sql(
                             f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}')
+                        new_columns.add(column)
+        self._backfill_last_facts_date()
+        self._backfill_ciks()
+        self._ensure_cashflow_key()
+
+    def _backfill_ciks(self):
+        """Fill in CIKs for tickers stored before the column existed.
+
+        Uses edgartools' bundled ticker->CIK mapping (offline, no request).
+        EDGAR runs set it directly from the fetched company, so this only has
+        to cover history.
+        """
+        with self.engine.begin() as conn:
+            pending = conn.exec_driver_sql(
+                'SELECT ticker FROM ticker_meta WHERE cik IS NULL').fetchall()
+        names = [row[0] for row in pending]
+        if not names:
+            return
+        try:
+            from findata.database.edgar_ import ticker_ciks
+            lookup = ticker_ciks(names)
+        except Exception as e:
+            logger.warning('Could not backfill CIKs (%s)', e)
+            return
+        rows = [(int(cik), ticker) for ticker, cik in lookup.items()]
+        if not rows:
+            return
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql('UPDATE ticker_meta SET cik = ? WHERE ticker = ?', rows)
+        logger.info('Backfilled CIK for %d of %d ticker(s)', len(rows), len(names))
+
+    def _backfill_last_facts_date(self):
+        """Seed last_facts_date for tickers whose statements predate the column.
+
+        The newest stored filing date is a guaranteed lower bound on when the
+        facts were pulled -- a filing cannot have been stored before it was
+        published -- so this never claims data is fresher than it is. Tickers
+        whose newest filing is genuinely old simply refresh once and then
+        carry an accurate stamp. Correlated subqueries are kept one level
+        deep: SQLite cannot resolve the outer row through a nested FROM.
+        """
+        with self.engine.begin() as conn:
+            pending = conn.exec_driver_sql(
+                'SELECT COUNT(*) FROM ticker_meta '
+                'WHERE last_facts_date IS NULL AND edgar_seeded = 1').scalar()
+            if not pending:
+                return
+            n = conn.exec_driver_sql("""
+                UPDATE ticker_meta SET last_facts_date = COALESCE(
+                    (SELECT MAX(filed_date) FROM income_data
+                        WHERE ticker = ticker_meta.ticker),
+                    (SELECT MAX(filed_date) FROM balance_data
+                        WHERE ticker = ticker_meta.ticker),
+                    (SELECT MAX(filed_date) FROM cashflow_data
+                        WHERE ticker = ticker_meta.ticker))
+                WHERE last_facts_date IS NULL AND edgar_seeded = 1
+            """).rowcount
+        logger.info('Backfilled last_facts_date for %s ticker(s) from stored filings', n)
+
+    def _ensure_cashflow_key(self):
+        """Rebuild cashflow_data when it predates 'derived' joining the PK.
+
+        Without derived in the key, a de-cumulated quarter and the cumulative
+        window it came from collide. Stored rows are dropped rather than
+        migrated: they were written by the old parser, and re-running the
+        EDGAR pipeline regenerates them correctly.
+        """
+        with self.engine.begin() as conn:
+            info = list(conn.exec_driver_sql('PRAGMA table_info(cashflow_data)'))
+            if not info or any(row[1] == 'derived' and row[5] for row in info):
+                return  # missing table (create_all handles it) or already keyed
+            n = conn.exec_driver_sql('SELECT COUNT(*) FROM cashflow_data').scalar()
+            logger.warning('cashflow_data: rebuilding with derived in the primary key '
+                           '(%s stale row(s) dropped -- re-run init_edgar to repopulate)', f'{n:,}')
+            conn.exec_driver_sql('DROP TABLE cashflow_data')
+        CashflowData.__table__.create(self.engine)
 
     def _technical_columns(self) -> list:
         """Value columns of technical_data on disk (PRAGMA-discovered so
@@ -264,16 +345,30 @@ class DBManager:
         promote it with scripts/db_handling/seed_technicals.py.
         """
         prices = self._standardize_prices(prices)
+        names = prices.index.get_level_values('ticker').unique().tolist()
+        # A re-request usually returns bars we already hold, which INSERT OR
+        # IGNORE drops. Comparing stored row counts across the insert says
+        # exactly which tickers gained anything (including a backfilled gap,
+        # which a max-date check would miss), so the rest can skip the
+        # recompute entirely instead of rewriting identical values.
+        before = self._price_row_counts(names)
         counts = {'price': self._insert_prices(prices), 'technical': 0}
+        after = self._price_row_counts(names) if counts['price'] else before
+        changed = {t for t in names if after.get(t, 0) > before.get(t, 0)}
+
         if daily_only:
             prices = prices.loc[['daily']]
         groups = prices.groupby(level=['interval', 'ticker'], sort=False)
-        logger.info('Incremental update: %d new price rows across %d ticker/interval group(s)',
-                    counts['price'], len(groups))
+        logger.info('Incremental update: %d new price rows across %d ticker/interval '
+                    'group(s); %d ticker(s) gained bars', counts['price'], len(groups),
+                    len(changed))
 
-        n_full = n_prices_only = 0
+        n_full = n_prices_only = n_unchanged = 0
         for (interval, ticker), new_bars in tqdm(groups, desc='Updating', unit='group',
                                                  disable=not progress):
+            if ticker not in changed:
+                n_unchanged += 1
+                continue
             seeds, windows = self._technical_state(ticker, interval)
             if not windows:
                 logger.debug('%s/%s has no stored technicals, prices only', ticker, interval)
@@ -288,6 +383,9 @@ class DBManager:
             n_full += 1
             logger.debug('%s/%s updated: %d technical rows', ticker, interval, written)
 
+        if n_unchanged:
+            logger.info('%d ticker/interval group(s) had no new bars, technicals untouched',
+                        n_unchanged)
         if info is None:
             info = self._last_price_dates(prices)
         if not info.empty:
@@ -318,6 +416,16 @@ class DBManager:
 
     def _insert_prices(self, prices: pd.DataFrame, conn=None) -> int:
         return self._insert_ignore(PriceData, prices.reset_index(), conn=conn)
+
+    def _price_row_counts(self, tickers) -> dict:
+        """Stored price rows per ticker, for detecting what an insert added."""
+        if not tickers:
+            return {}
+        stmt = (select(PriceData.ticker, func.count().label('n'))
+                .where(PriceData.ticker.in_(list(tickers)))
+                .group_by(PriceData.ticker))
+        with self.engine.connect() as conn:
+            return {ticker: n for ticker, n in conn.execute(stmt)}
 
     @staticmethod
     def _calc_to_wide(calc_df: pd.DataFrame, ticker: str, interval: str) -> pd.DataFrame:
@@ -364,8 +472,10 @@ class DBManager:
         self._upsert_meta(info, **flags)
 
     def _upsert_meta(self, info: pd.DataFrame, **flags):
-        allowed = ['ticker', 'name', 'sector', 'industry', 'last_price_date', 'first_price_date',
-                   'last_filings_date', 'last_form4_date', 'yf_seeded', 'edgar_seeded']
+        allowed = ['ticker', 'cik', 'name', 'sector', 'industry', 'last_price_date',
+                   'first_price_date', 'last_filings_date', 'last_form4_date',
+                   'last_facts_date', 'last_fundamentals_date', 'yf_seeded',
+                   'edgar_seeded']
         df = info.reset_index()
         records = self._records(df[[c for c in df.columns if c in allowed]])
         if not records:
@@ -889,6 +999,60 @@ class DBManager:
         logger.debug('financials inserted: %s', counts)
         return counts
 
+    def last_statement_dates(self, tickers=None) -> pd.Series:
+        """Newest filed_date per ticker across the three statement tables.
+
+        The high-water mark of what has actually been parsed, so callers can
+        compare it against a filing list to see whether new financials exist.
+        """
+        single = isinstance(tickers, str)
+        parts = []
+        for model in (IncomeData, BalanceData, CashflowData):
+            stmt = select(model.ticker, func.max(model.filed_date).label('filed'))
+            if tickers is not None:
+                names = [tickers] if single else list(tickers)
+                stmt = stmt.where(model.ticker.in_(names))
+            parts.append(pd.read_sql(stmt.group_by(model.ticker), self.engine))
+        combined = pd.concat(parts, ignore_index=True).dropna(subset=['filed'])
+        if combined.empty:
+            return pd.Series(dtype='object', name='filed')
+        combined['filed'] = pd.to_datetime(combined['filed']).dt.date
+        return combined.groupby('ticker')['filed'].max()
+
+    def set_inactive(self, tickers, active: bool = False) -> int:
+        """Flag tickers as no longer trading (or revive them).
+
+        A delisted or renamed symbol keeps its stored history but stops
+        returning bars, so it would otherwise be re-requested on every run
+        forever. ``active=True`` clears the flag, which is what happens
+        automatically the moment a symbol produces bars again.
+        """
+        tickers = [tickers] if isinstance(tickers, str) else list(tickers)
+        if not tickers:
+            return 0
+        stamp = None if active else date.today().isoformat()
+        with self.engine.begin() as conn:
+            n = conn.exec_driver_sql(
+                f'UPDATE ticker_meta SET inactive_since = ? '
+                f'WHERE ticker IN ({",".join("?" * len(tickers))})',
+                (stamp, *tickers)).rowcount
+        logger.info('Marked %s ticker(s) %s', n, 'active' if active else 'inactive')
+        return n
+
+    def replace_financials(self, ticker: str, statements: dict) -> dict:
+        """Delete a ticker's stored statements, then insert the parsed set.
+
+        The facts request always returns the issuer's full history, so the
+        parse is authoritative and a plain INSERT OR IGNORE would preserve
+        rows that a parser fix has since corrected (or re-keyed onto a
+        different fiscal year). Replacing makes re-runs self-healing.
+        """
+        models = {'income': IncomeData, 'balance': BalanceData, 'cashflow': CashflowData}
+        with self.engine.begin() as conn:
+            for model in models.values():
+                conn.execute(model.__table__.delete().where(model.ticker == ticker))
+        return self.add_financials(statements)
+
     # ------------------------------------------------------------------ #
     # derived fundamentals
     # ------------------------------------------------------------------ #
@@ -1125,8 +1289,8 @@ class DBManager:
         income -- annual rows or as-reported quarters (incl. derived Q4);
         balance -- fiscal-year-end values, shown as quarter 4 in the
         quarterly view; cash flow -- full-year windows for annual,
-        single-quarter windows for quarterly (reported Q1s plus derived
-        rows when the pipeline ran with decumulate_cashflow=True).
+        single-quarter windows for quarterly (the as-reported Q1 plus the
+        derived rows the parser de-cumulates for Q2-Q4).
 
         ``ticker`` may be a list; results gain a leading 'ticker' index level
         -> (ticker, fiscal_year[, fiscal_quarter]).

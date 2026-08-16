@@ -138,3 +138,38 @@ pn.extension('tabulator')
 2026-07-22 22:21:11,651 INFO    bokeh.server.views.ws | WebSocket connection opened
 2026-07-22 22:21:11,651 INFO    bokeh.server.views.ws | ServerConnection created
 2026-07-22 22:21:17,290 INFO    tornado.access | 200 GET /static/extensions/panel/bundled/font-awesome/css/all.min.css?v=1.9.3 (::1) 0.69ms
+2026-08-10 16:50:13,168 INFO    findata.configs | Logging configured -> /Users/connorott/PycharmProjects/findata/logs/workbench.log
+2026-08-10 16:50:14,453 INFO    scripts.workbench | Workbench universe: 150 tickers, start=2013-01-01
+2026-08-10 16:50:14,457 INFO    bokeh.server.server | Starting Bokeh server version 3.9.1 (running on Tornado 6.5.7)
+2026-08-10 16:50:14,458 INFO    bokeh.server.tornado | User authentication hooks NOT provided (default user enabled)
+2026-08-10 16:50:14,606 INFO    findata.analysis.plotting.workbench.app | New workbench session (150 tickers)
+2026-08-10 16:50:15,856 INFO    findata.database.db_manager | get_items (150 tickers, 1 cols) done in 1.09s
+2026-08-10 16:50:15,886 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.item_panel done in 1.12s
+2026-08-10 16:50:16,400 INFO    findata.database.db_manager | get_items (150 tickers, 0 cols) done in 0.51s
+2026-08-10 16:50:16,429 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.close_panel done in 0.54s
+2026-08-10 16:50:16,728 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 1.96s
+2026-08-10 16:50:17,023 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.30s
+2026-08-10 16:50:17,322 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.30s
+2026-08-10 16:50:17,617 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.30s
+2026-08-10 16:50:17,909 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.29s
+2026-08-10 16:50:18,201 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.fwd_ic done in 0.29s
+2026-08-10 16:50:18,257 INFO    findata.analysis.plotting.workbench.data | decompose(rsi_14): 3 low-coverage ticker(s) excluded
+2026-08-10 16:50:19,010 INFO    findata.database.db_manager | get_items (150 tickers, 2 cols) done in 0.73s
+2026-08-10 16:50:19,033 INFO    findata.analysis.plotting.workbench.data | WorkbenchData.breadth done in 0.75s
+2026-08-10 16:50:19,046 INFO    findata.analysis.plotting.workbench.data | decompose(log_ret): 2 low-coverage ticker(s) excluded
+2026-08-10 16:50:19,344 WARNING bokeh.core.validation.check | W-1005 (FIXED_SIZING_MODE): 'fixed' sizing mode requires width and height to be set: Column(id='p1052', ...)
+2026-08-10 16:50:19,355 INFO    tornado.access | 200 GET / (::1) 4753.90ms
+2026-08-10 16:50:19,370 INFO    tornado.access | 200 GET /static/js/bokeh.min.js?v=c85a71710df1e48619ab74e8acedef0c76cf5697889a829b79c262ad77b136cac00cbaf306c2df2bcafe14bff7ba1bf8f7f6922d534162a6b89fe1a348fec8d8 (::1) 1.77ms
+2026-08-10 16:50:19,371 INFO    tornado.access | 200 GET /static/js/bokeh-gl.min.js?v=3d920f419e4c3d6e27f6d774b14edac80165c20169a419bd637e6226e87e33deb0aa5d31b37397e73f890385d5a2d0881765fd61630193d38f19c979cd9d1fc0 (::1) 1.73ms
+2026-08-10 16:50:19,371 INFO    tornado.access | 200 GET /static/js/bokeh-widgets.min.js?v=cb85c01004ee962d745170fefaf660e77ba24c81c5fe457af5bdc74805c8d4d3cab69106a069f2492b896408bf45e7cd6bfa55eb42ec923bb58ea10bd9199402 (::1) 1.94ms
+2026-08-10 16:50:19,373 INFO    tornado.access | 304 GET /static/extensions/panel/bundled/reactiveesm/es-module-shims@%5E1.10.0/dist/es-module-shims.min.js (::1) 3.22ms
+2026-08-10 16:50:19,374 INFO    tornado.access | 200 GET /static/extensions/panel/bundled/datatabulator/tabulator-tables@6.4.0/dist/js/tabulator.min.js (::1) 4.61ms
+2026-08-10 16:50:19,375 INFO    tornado.access | 200 GET /static/extensions/panel/bundled/datatabulator/luxon/build/global/luxon.min.js (::1) 5.70ms
+2026-08-10 16:50:19,377 INFO    tornado.access | 200 GET /static/js/bokeh-tables.min.js?v=63390c9dd3f4799068e874db14f67d7e5c5746a214faa450a6ca8519ca8c5bfc090a6d39813270da9b069ec1cd05dbe20f9f52dfdd7b64cc62d3d1c8d05bf19f (::1) 0.59ms
+2026-08-10 16:50:19,379 INFO    tornado.access | 200 GET /static/extensions/panel/panel.min.js?v=d45bb251d81ae1a0dd15f5befb17b375d0fc5d1655d1ac73e514eff7cce24dd8 (::1) 2.54ms
+2026-08-10 16:50:19,492 INFO    tornado.access | 101 GET /ws (::1) 0.35ms
+2026-08-10 16:50:19,493 INFO    bokeh.server.views.ws | WebSocket connection opened
+2026-08-10 16:50:19,493 INFO    bokeh.server.views.ws | ServerConnection created
+2026-08-10 16:50:19,493 INFO    tornado.access | 200 GET /favicon.ico (::1) 0.43ms
+2026-08-10 16:51:39,894 INFO    tornado.access | 200 GET /static/extensions/panel/bundled/font-awesome/css/all.min.css?v=1.9.3 (::1) 1.19ms
+2026-08-10 16:51:47,389 INFO    bokeh.server.views.ws | WebSocket connection closed: code=1001, reason=None

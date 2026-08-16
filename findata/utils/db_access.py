@@ -15,14 +15,14 @@ def get_ticker_meta(tickers: str | Iterable[str]=None, db_path=None, manager: DB
     return db.get_ticker_meta(tickers)
 
 def get_ticker_data_df(tickers: str | Iterable[str]=None, start_date: str = '2012-01-01', end_date: str = None,
-                       db_path=None, manager: DBManager = None) -> DataFrame:
+                       db_path=None, manager: DBManager = None, include_fundamentals=False) -> DataFrame:
     manager = DBManager(db_path=db_path) if manager is None else manager
     tickers = _to_list(tickers)
     tickers = tickers if tickers else manager.get_all_tickers()
-    return manager.get_all_data(tickers, 'daily', start=start_date, end=end_date, wide=True)
+    return manager.get_all_data(tickers, 'daily', start=start_date, end=end_date, wide=True, include_fundamentals=include_fundamentals)
 
 def get_all_data(tickers: str | Iterable[str]=None, start_date: str = '2012-01-01', end_date: str = None,
-                 db_path=None, manager: DBManager = None) -> tuple:
+                 db_path=None, manager: DBManager = None, include_fundamentals=False) -> tuple:
     manager = DBManager(db_path=db_path) if manager is None else manager
     tickers = _to_list(tickers)
     meta = get_ticker_meta(tickers, db_path=db_path, manager=manager)
@@ -33,7 +33,7 @@ def get_all_data(tickers: str | Iterable[str]=None, start_date: str = '2012-01-0
         skipped = [t for t in tickers if t not in meta.index]
     if skipped:
         print(f"Skipping tickers not in database: {skipped}")
-    return get_ticker_data_df(tickers, start_date, end_date, db_path=db_path, manager=manager), meta
+    return get_ticker_data_df(tickers, start_date, end_date, db_path=db_path, manager=manager, include_fundamentals=include_fundamentals), meta
 
 def get_price_data(tickers: str | Iterable[str]=None, start_date: str = '2012-01-01', end_date: str = None,
                    db_path=None, manager: DBManager = None) -> DataFrame:

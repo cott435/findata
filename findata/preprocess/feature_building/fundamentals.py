@@ -52,3 +52,17 @@ class Fundamentals(FeatureGroup):
             by_scaler.setdefault(key, []).append(col)
         return [ScaleRule(columns=cols, scaler=scaler)
                 for scaler, cols in by_scaler.items()]
+
+
+if __name__ == "__main__":
+    from findata import get_all_data, get_all_tickers
+
+    tickers = get_all_tickers()[:20]
+    data, _ = get_all_data(tickers, include_fundamentals=True)
+
+    mom = Fundamentals()
+    features = mom.engineer(data)
+
+    #mom.plot_fe(features, data)
+
+    rsi = features['rsi_short_raw'].unstack("ticker").sort_index() .dropna(axis=1, how='any')

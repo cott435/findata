@@ -27,14 +27,17 @@ from findata.preprocess.calculators.base import (Calculator, OutputSpec,
 
 # income/cashflow items summed into ttm_<item>; balance items stay point-in-time
 FLOW_ITEMS = ('revenue', 'cost_of_revenue', 'gross_profit', 'operating_expenses',
-              'rnd_expense', 'operating_income', 'pretax_income', 'income_tax',
-              'net_income', 'interest_expense', 'operating_cash_flow',
+              'costs_and_expenses', 'rnd_expense', 'operating_income', 'pretax_income',
+              'income_tax', 'net_income', 'interest_expense', 'operating_cash_flow',
               'investing_cash_flow', 'financing_cash_flow', 'capex',
               'depreciation_amortization', 'dividends_paid', 'stock_buybacks')
 
 QUARTER_DURATION_MAX = 110   # days; longer cashflow windows are cumulative
 MKTCAP_JUMP_LIMIT = 1.5      # |dlog mktcap| across a quarter beyond this -> NaN
-CLOSE_ASOF_TOLERANCE = 10    # days a filed_date may trail the last close
+CLOSE_ASOF_TOLERANCE = 10    # max age of a close found INSIDE the price history
+PRICE_EDGE_STALE_DAYS = 45   # max age of the newest close when the filing is newer
+                             # than the whole series (prices simply not refreshed)
+BALANCE_FFILL_QUARTERS = 4   # how far a reported balance level carries forward
 
 
 @dataclass
@@ -67,38 +70,40 @@ def _pivot_statement(df: pd.DataFrame, index_cols: list) -> pd.DataFrame:
 
 
 def _quarterly_cashflow(cashflow: pd.DataFrame) -> pd.DataFrame:
-    """Single-quarter cashflow rows: as-reported quarters and derived rows,
-    plus in-memory decumulation of cumulative windows where neither exists."""
+    """The single-quarter cash-flow rows.
+
+    The EDGAR parser always stores de-cumulated quarters alongside the
+    as-reported cumulative windows, so selecting the short windows is enough:
+    Q1's cumulative row IS its single quarter, and Q2-Q4 come from the
+    ``derived=True`` twins. The cumulative windows are excluded because
+    summing them would multiply-count the year to date.
+    """
     if cashflow is None or cashflow.empty:
         return pd.DataFrame()
-    df = cashflow[cashflow['fiscal_quarter'].notna() & (cashflow['fiscal_quarter'] > 0)]
-    single = df[df['duration_days'] <= QUARTER_DURATION_MAX]
-
-    cumulative = df[(df['duration_days'] > QUARTER_DURATION_MAX) & (~df['derived'].astype(bool))]
-    q1_lookup = (single[single['fiscal_quarter'] == 1]
-                 .drop_duplicates(subset=['item', 'fiscal_year'])
-                 .set_index(['item', 'fiscal_year'])['value'])
-    decum_rows = []
-    for (item, fy), grp in cumulative.groupby(['item', 'fiscal_year']):
-        grp = grp.sort_values('duration_days')
-        # Q1 arrives as a single-quarter window, so it seeds the running total
-        q1 = q1_lookup.get((item, fy))
-        prev_value, prev_q = (float(q1), 1) if q1 is not None and pd.notna(q1) else (0.0, 0)
-        for row in grp.itertuples():
-            if row.fiscal_quarter == prev_q + 1:
-                decum_rows.append({'fiscal_year': fy, 'fiscal_quarter': row.fiscal_quarter,
-                                   'item': item, 'value': row.value - prev_value,
-                                   'filed_date': row.filed_date})
-            prev_value, prev_q = row.value, row.fiscal_quarter
-    parts = [single[['fiscal_year', 'fiscal_quarter', 'item', 'value', 'filed_date']]]
-    if decum_rows:
-        parts.append(pd.DataFrame(decum_rows))
-    out = pd.concat(parts, ignore_index=True)
-    return out.drop_duplicates(subset=['fiscal_year', 'fiscal_quarter', 'item'], keep='first')
+    df = cashflow[cashflow['fiscal_quarter'].between(1, 4)
+                  & (cashflow['duration_days'] <= QUARTER_DURATION_MAX)]
+    if df.empty:
+        return pd.DataFrame()
+    # a derived quarter and an as-reported one can cover the same period;
+    # prefer the as-reported value
+    df = df.sort_values('derived')
+    return df[['fiscal_year', 'fiscal_quarter', 'item', 'value', 'filed_date']] \
+        .drop_duplicates(subset=['fiscal_year', 'fiscal_quarter', 'item'], keep='first')
 
 
-def _close_asof(closes: pd.Series, when, tolerance_days: int = CLOSE_ASOF_TOLERANCE):
-    """Last close at or before ``when``, NaN when staler than the tolerance."""
+def _close_asof(closes: pd.Series, when, tolerance_days: int = CLOSE_ASOF_TOLERANCE,
+                edge_days: int = PRICE_EDGE_STALE_DAYS):
+    """Last close at or before ``when`` -- never after, so no lookahead.
+
+    Two staleness limits apply, because a missing close means different
+    things in different places. A wide gap INSIDE the price history means the
+    name was not trading (halt, delisting), so the market cap is genuinely
+    unknown and NaN is right. Past the END of the series the prices just have
+    not been refreshed yet -- the newest close is the best available quote,
+    so it stands for up to ``edge_days`` and the value corrects itself on the
+    next build once prices catch up. A ticker that stopped trading long ago
+    still falls out, since its last close ages past ``edge_days`` too.
+    """
     if closes is None or closes.empty or pd.isna(when):
         return np.nan
     when = pd.Timestamp(when).date()  # index holds python dates
@@ -106,9 +111,9 @@ def _close_asof(closes: pd.Series, when, tolerance_days: int = CLOSE_ASOF_TOLERA
     pos = dates.searchsorted(when, side='right') - 1
     if pos < 0:
         return np.nan
-    if (pd.Timestamp(when) - pd.Timestamp(dates[pos])).days > tolerance_days:
-        return np.nan
-    return closes.iloc[pos]
+    age = (pd.Timestamp(when) - pd.Timestamp(dates[pos])).days
+    limit = edge_days if pos == len(dates) - 1 else tolerance_days
+    return closes.iloc[pos] if age <= limit else np.nan
 
 
 def build_quarter_panel(income: pd.DataFrame, balance: pd.DataFrame,
@@ -141,9 +146,25 @@ def build_quarter_panel(income: pd.DataFrame, balance: pd.DataFrame,
     frame = pd.concat([w.drop(columns='filed_date') for w in parts], axis=1).sort_index()
     frame['filed_date'] = filed.dt.date  # back to python dates (repo convention)
 
+    # Balance items are stock levels, so the last reported figure stands until
+    # the next report -- many issuers break out debt or investments only in
+    # the 10-K, which would otherwise leave every interim quarter (and every
+    # ratio built on them, EV especially) empty. Flows are never carried:
+    # they belong to their own period. Not lookahead -- values only move
+    # forward in time, and the row keeps the later filing's filed_date.
+    balance_cols = [c for c in bal_w.columns if c != 'filed_date'] if not bal_w.empty else []
+    if balance_cols:
+        frame[balance_cols] = frame[balance_cols].ffill(limit=BALANCE_FFILL_QUARTERS)
+
+    # accounting identities filled in where the issuer never tagged the
+    # subtotal directly (common outside large caps -- e.g. AA tags neither
+    # GrossProfit nor OperatingIncomeLoss)
     if {'revenue', 'cost_of_revenue'} <= set(frame.columns):
         gp = frame['revenue'] - frame['cost_of_revenue']
         frame['gross_profit'] = frame.get('gross_profit', gp).fillna(gp)
+    if {'revenue', 'costs_and_expenses'} <= set(frame.columns):
+        oi = frame['revenue'] - frame['costs_and_expenses']
+        frame['operating_income'] = frame.get('operating_income', oi).fillna(oi)
 
     for item in FLOW_ITEMS:
         if item in frame.columns:
@@ -163,10 +184,18 @@ def build_quarter_panel(income: pd.DataFrame, balance: pd.DataFrame,
     if bad.any():
         frame.loc[bad, 'mktcap'] = np.nan
 
-    ltd = frame.get('long_term_debt')
-    std = frame.get('short_term_debt')
-    if ltd is not None:
-        frame['total_debt'] = ltd + (std.fillna(0.0) if std is not None else 0.0)
+    # Debt is absent from a balance sheet for two reasons: the issuer has
+    # none (debt-free small caps never tag it at all), or it repaid what it
+    # had and the line disappeared. Both mean zero, so wherever a balance
+    # sheet exists the missing legs count as 0 -- either leg alone is a valid
+    # capital structure. Quarters with no balance sheet at all stay NaN.
+    core = [c for c in ('assets', 'liabilities', 'stockholders_equity', 'assets_current')
+            if c in frame.columns]
+    if core:
+        has_balance = frame[core].notna().any(axis=1)
+        legs = [frame[c] for c in ('long_term_debt', 'short_term_debt') if c in frame.columns]
+        total = sum(leg.fillna(0.0) for leg in legs) if legs else 0.0
+        frame['total_debt'] = pd.Series(total, index=frame.index).where(has_balance)
     if {'ttm_operating_income', 'ttm_depreciation_amortization'} <= set(frame.columns):
         frame['ttm_ebitda'] = frame['ttm_operating_income'] + frame['ttm_depreciation_amortization']
     cash = frame.get('cash_and_equivalents')

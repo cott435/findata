@@ -195,7 +195,7 @@ class YahooFinance:
                     "prices": candles,
                 }
         except KeyError as e:
-            if self.rerequest >10 or e.args[0] == 'daily':
+            if self.rerequest >6 or e.args[0] == 'daily':
                 return {ticker: {"ticker": ticker, "info": {"error": str(e)}} for ticker in self.tickers}
             print("HTTP error getting data, requesting again after 10 seconds")
             self.rerequest += 1

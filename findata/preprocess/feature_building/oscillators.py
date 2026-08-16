@@ -136,21 +136,6 @@ if __name__ == "__main__":
 
     rsi = features['rsi_short_raw'].unstack("ticker").sort_index() .dropna(axis=1, how='any')
 
-    from findata.analysis import CorrelationStructureAnalysis
-    cc = CorrelationStructureAnalysis()
-    res = cc.run(features)
-
-
-
-    #both = Oscillators(oscillators=["rsi", "cci"])
-    #print(f"\nWith oscillators=['rsi','cci']: {len(both.engineer(data).columns)} columns")
-
-    import numpy as np
-    ff = [c for c in features.columns if 'contrast' not in c]
-    vals = features.dropna()[ff].to_numpy(dtype=float)
-    corr = np.corrcoef(vals, rowvar=False)
-
-    eigvals = np.linalg.eigvalsh(corr)[::-1]
 
 
 

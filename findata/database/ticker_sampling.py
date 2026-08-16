@@ -19,12 +19,13 @@ class TickerSampler:
         self,
         use_all=False,
         date_limit: str | None = '1-1-2018',
-        market_cap_floor=300_000_000
+        market_cap_floor=300_000_000,
+        domestic_only: bool = True,
     ):
         """
-        use_sp500: include tickers from S&P 500 historical data
-        use_russell3000: include current Russell 3000 tickers
-        sp500_date_limit: only include S&P 500 tickers from rows on/after this date (e.g. '2010-01-01')
+        use_all: draw from us_tickers.xlsx (market-cap filtered) instead of all_info.xlsx
+        date_limit: only tickers with price history starting on/before this date
+        domestic_only: drop foreign private issuers -- see _drop_foreign
         """
         self._tickers: set[str] = set()
         self.market_cap_floor = market_cap_floor
@@ -34,6 +35,33 @@ class TickerSampler:
             self._tickers.update(self._load_all())
         else:
             self._tickers.update(self._load_subset())
+        if domestic_only:
+            self._tickers = self._drop_foreign(self._tickers)
+
+    @staticmethod
+    def _drop_foreign(tickers: set[str]) -> set[str]:
+        """Remove companies that file 20-F/40-F rather than a 10-K.
+
+        Foreign private issuers tag their XBRL in the ifrs-full taxonomy and
+        report semi-annually, so the us-gaap concept lists and quarter-length
+        windows in edgar_.py resolve almost nothing for them -- their stored
+        statements come out empty rather than wrong. Excluding them keeps the
+        universe to names the fundamentals pipeline can actually populate.
+
+        Classification comes from which annual form each company files (cached
+        under the data dir). Tickers EDGAR has no annual filing for are kept:
+        absence of evidence is not evidence of a foreign filer.
+        """
+        try:
+            from findata.database.edgar_ import filer_types
+            kinds = filer_types(sorted(tickers))
+        except Exception as e:
+            print(f'Could not classify filers ({e}); keeping all tickers')
+            return tickers
+        foreign = {t for t in tickers if kinds.get(t) == 'foreign'}
+        if foreign:
+            print(f'Excluding {len(foreign)} foreign filer(s) from the universe')
+        return tickers - foreign
 
     def _load_subset(self):
         us_path = DATA_DIR / "all_info.xlsx"

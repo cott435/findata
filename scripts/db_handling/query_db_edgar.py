@@ -100,8 +100,8 @@ def main():
     banner(f'5d. get_cashflow({ticker!r}) -- cumulative windows with duration')
     cashflow = db.get_cashflow(ticker, items=['operating_cash_flow'])
     print(cashflow.tail(6).to_string(index=False))
-    print("\n(derived=True rows are de-cumulated quarters; populated when the "
-          "pipeline runs with decumulate_cashflow=True)")
+    print("\n(derived=True rows are the de-cumulated single quarters the parser "
+          "always stores alongside the as-reported cumulative windows)")
 
     banner(f"6a. get_financials({ticker!r}, interval='annual') -- indexed by fiscal_year")
     print(db.get_financials(ticker, interval='annual'))

@@ -11,6 +11,13 @@ The fetch side is four queue-fed stages, mirroring the edgartools call chain:
     3. obj queue:      filing            -> filing.obj()     (download + parse)
     4. facts queue:    company           -> get_facts()      (all XBRL facts, one request)
 
+``mode='numeric'`` starts ONLY stages 1 and 4: no filing list is requested
+and no filing is ever downloaded or parsed, so a ticker costs exactly two
+requests and yields just the income/balance/cashflow tables. ``mode='full'``
+(the default) starts all four. For Form 4 transactions without any
+10-K/10-Q/8-K text, use ``mode='full', forms=('4',)`` -- that runs the
+filings stages against Form 4 alone.
+
 Stage workers share one concurrency semaphore and one rate limiter so total
 request pressure stays under the SEC ceiling regardless of stage. Workers
 reduce each filing object to a small payload (section texts / trade frames)
@@ -89,27 +96,49 @@ TENQ_SECTIONS = {
 
 INCOME_ITEMS = {
     'revenue': ['RevenueFromContractWithCustomerExcludingAssessedTax',
+                'RevenueFromContractWithCustomerIncludingAssessedTax',
                 'RevenuesNetOfInterestExpense', 'Revenues', 'SalesRevenueNet',
-                'SalesRevenueGoodsNet', 'SalesRevenueServicesNet'],
-    'cost_of_revenue': ['CostOfGoodsAndServicesSold', 'CostOfRevenue', 'CostOfGoodsSold'],
+                'SalesRevenueGoodsNet', 'SalesRevenueServicesNet',
+                # sector top lines: banks report interest + noninterest income
+                # rather than "revenue"; REITs report rental revenue
+                'InterestAndDividendIncomeOperating', 'RealEstateRevenueNet',
+                'HealthCareOrganizationRevenue', 'RegulatedAndUnregulatedOperatingRevenue'],
+    'cost_of_revenue': ['CostOfGoodsAndServicesSold', 'CostOfRevenue', 'CostOfGoodsSold',
+                        'CostOfServices', 'CostOfSales',
+                        # ex-D&A variants (AA and other capital-intensive issuers
+                        # report only these -- D&A is a separate line for them)
+                        'CostOfGoodsAndServiceExcludingDepreciationDepletionAndAmortization',
+                        'CostOfGoodsSoldExcludingDepreciationDepletionAndAmortization',
+                        'CostOfRevenueExcludingDepreciationDepletionAndAmortization'],
     'gross_profit': ['GrossProfit'],
     'operating_expenses': ['OperatingExpenses', 'CostsAndExpenses'],
+    # total operating costs -- kept as its own item so operating_income can be
+    # reconstructed (revenue - costs) for issuers that never tag it directly
+    'costs_and_expenses': ['CostsAndExpenses', 'OperatingCostsAndExpenses'],
     'rnd_expense': ['ResearchAndDevelopmentExpense'],
     'operating_income': ['OperatingIncomeLoss'],
     'pretax_income': ['IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest',
                       'IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments'],
     'income_tax': ['IncomeTaxExpenseBenefit'],
     'net_income': ['NetIncomeLoss', 'ProfitLoss', 'NetIncomeLossAvailableToCommonStockholdersBasic'],
-    'eps_basic': ['EarningsPerShareBasic'],
-    'eps_diluted': ['EarningsPerShareDiluted'],
-    'shares_basic': ['WeightedAverageNumberOfSharesOutstandingBasic'],
-    'shares_diluted': ['WeightedAverageNumberOfDilutedSharesOutstanding'],
+    # 'BasicAndDiluted' is one combined tag used by issuers whose two figures
+    # are identical (loss-makers with no dilution, e.g. ABEO 2015-2021)
+    'eps_basic': ['EarningsPerShareBasic', 'EarningsPerShareBasicAndDiluted'],
+    'eps_diluted': ['EarningsPerShareDiluted', 'EarningsPerShareBasicAndDiluted'],
+    'shares_basic': ['WeightedAverageNumberOfSharesOutstandingBasic',
+                     'WeightedAverageNumberOfShareOutstandingBasicAndDiluted'],
+    'shares_diluted': ['WeightedAverageNumberOfDilutedSharesOutstanding',
+                       'WeightedAverageNumberOfShareOutstandingBasicAndDiluted'],
     'interest_expense': ['InterestExpense', 'InterestExpenseDebt',
-                         'InterestAndDebtExpense', 'InterestExpenseNonoperating'],
+                         'InterestAndDebtExpense', 'InterestExpenseNonoperating',
+                         'InterestExpenseOther'],
 }
 
-# averages are not additive across quarters -- never derive a Q4 for these
-NON_ADDITIVE_ITEMS = ('shares_basic', 'shares_diluted')
+# Weighted-average share counts are averages, not sums: the fiscal-year figure
+# is the mean of the quarters, so a missing Q4 is 4*FY - (Q1+Q2+Q3) rather than
+# FY - (Q1+Q2+Q3). EPS is left in the additive set -- annual EPS is the sum of
+# the quarters up to share-count drift, which is the standard convention.
+AVERAGE_ITEMS = ('shares_basic', 'shares_diluted')
 
 BALANCE_ITEMS = {
     'assets': ['Assets'],
@@ -139,15 +168,23 @@ CASHFLOW_ITEMS = {
                             'NetCashProvidedByUsedInInvestingActivitiesContinuingOperations'],
     'financing_cash_flow': ['NetCashProvidedByUsedInFinancingActivities',
                             'NetCashProvidedByUsedInFinancingActivitiesContinuingOperations'],
-    'capex': ['PaymentsToAcquirePropertyPlantAndEquipment', 'PaymentsToAcquireProductiveAssets'],
+    'capex': ['PaymentsToAcquirePropertyPlantAndEquipment', 'PaymentsToAcquireProductiveAssets',
+              'PaymentsForCapitalImprovements', 'PaymentsToAcquireMachineryAndEquipment',
+              'PaymentsToAcquireRealEstate', 'PaymentsToAcquireOtherPropertyPlantAndEquipment'],
     'depreciation_amortization': ['DepreciationDepletionAndAmortization',
+                                  'DepreciationAndAmortization',
                                   'DepreciationAmortizationAndAccretionNet', 'Depreciation'],
     'dividends_paid': ['PaymentsOfDividendsCommonStock', 'PaymentsOfDividends'],
     'stock_buybacks': ['PaymentsForRepurchaseOfCommonStock'],
 }
 
-QUARTER_DAYS = (70, 110)    # one fiscal quarter (13/14-week)
+QUARTER_DAYS = (70, 115)    # one fiscal quarter (13/14-week)
 ANNUAL_DAYS = (330, 400)    # one fiscal year (52/53-week)
+
+# 52/53-week fiscal years can end a few days either side of the month boundary
+# (e.g. a "2022" year ending 2023-01-01); shifting back before reading the
+# month keeps those on the right fiscal year
+FY_EDGE_DAYS = 10
 
 TEXT_FORMS = ('10-K', '10-Q', '8-K')
 
@@ -169,42 +206,77 @@ def _slug(name: str) -> str:
     return name.lower().replace('.', '_').replace(',', '').replace(' ', '_')
 
 
+def _fiscal_year_end_month(duration: pd.DataFrame) -> int:
+    """The issuer's fiscal-year-end month, from the mode of its annual periods."""
+    annual = duration[duration['duration_days'].between(*ANNUAL_DAYS)]
+    if annual.empty:
+        return 12
+    month = (annual['period_end'] - pd.Timedelta(days=FY_EDGE_DAYS)).dt.month.mode()
+    return int(month.iloc[0]) if not month.empty else 12
+
+
+def _fiscal_labels(period_end: pd.Series, fye_month: int):
+    """(fiscal_year, fiscal_quarter) derived from the period's own end date.
+
+    XBRL's ``fiscal_year``/``fiscal_period`` describe the FILING a fact was
+    taken from, not the period it covers, so comparatives restated in a later
+    filing arrive mislabeled -- AA's FY2015 revenue appears as fiscal_year
+    2017 because it is a comparative column in the FY2017 10-K. Deriving the
+    labels from the period itself is filing-independent, so the same period
+    lands on the same fiscal year no matter which filing reported it.
+    """
+    shifted = period_end - pd.Timedelta(days=FY_EDGE_DAYS)
+    year, month = shifted.dt.year, shifted.dt.month
+    fiscal_year = year.where(month <= fye_month, year + 1)
+    months_to_year_end = (fye_month - month) % 12
+    quarter = (4 - (months_to_year_end / 3).round()).clip(1, 4)
+    return fiscal_year.astype('Int64'), quarter.astype('Int64')
+
+
 # ---------------------------------------------------------------------- #
 # financial facts parsing (pure functions -- no I/O)
 # ---------------------------------------------------------------------- #
 
-def parse_financials(facts: pd.DataFrame, ticker: str,
-                     decumulate_cashflow: bool = False) -> dict:
+def parse_financials(facts: pd.DataFrame, ticker: str) -> dict:
     """Parse one ticker's full facts frame into the three statement tables.
 
     Returns {'income': df, 'balance': df, 'cashflow': df} with columns
     matching income_data / balance_data / cashflow_data. Values are
     as-originally-reported: when a period shows up again in later filings
     (comparatives, restatements) the earliest filing wins.
+
+    Fiscal year/quarter are derived from each period's own dates rather than
+    XBRL's filing-scoped labels (see :func:`_fiscal_labels`), so a period
+    reported only as a comparative in a later filing still lands on its true
+    fiscal year. Cash flow is always de-cumulated into single quarters
+    alongside the as-reported cumulative rows.
     """
     if facts is None or facts.empty:
         return {'income': pd.DataFrame(), 'balance': pd.DataFrame(), 'cashflow': pd.DataFrame()}
 
     needed = ['concept', 'numeric_value', 'period_start', 'period_end', 'period_type',
-              'fiscal_year', 'fiscal_period', 'filing_date']
+              'filing_date']
     df = facts.loc[facts['numeric_value'].notna(), needed].copy()
     df['tag'] = df['concept'].str.split(':').str[-1]
     df['period_end'] = pd.to_datetime(df['period_end'], errors='coerce')
     df['period_start'] = pd.to_datetime(df['period_start'], errors='coerce')
     df['filing_date'] = pd.to_datetime(df['filing_date'], errors='coerce')
-    #df["fiscal_year"] = (df["period_end"] - pd.Timedelta(days=10)).dt.year
-    df['fiscal_quarter'] = df['fiscal_period'].map({'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4, 'FY': 0})
     df = df[df['period_end'].notna()]
 
-    instant = df[df['period_type'] == 'instant']
     duration = df[df['period_type'] == 'duration'].copy()
     duration = duration[duration['period_start'].notna()]
     duration['duration_days'] = (duration['period_end'] - duration['period_start']).dt.days
-    # TODO: need way to fix incorrect quarters and years in data without breaking back calcs
+
+    fye_month = _fiscal_year_end_month(duration)
+    duration['fiscal_year'], duration['fiscal_quarter'] = _fiscal_labels(
+        duration['period_end'], fye_month)
+    instant = df[df['period_type'] == 'instant'].copy()
+    instant['fiscal_year'], instant['fiscal_quarter'] = _fiscal_labels(
+        instant['period_end'], fye_month)
 
     income = _parse_income(duration)
     balance = _parse_balance(instant)
-    cashflow = _parse_cashflow(duration, decumulate=decumulate_cashflow)
+    cashflow = _parse_cashflow(duration)
     for frame in (income, balance, cashflow):
         if not frame.empty:
             frame.insert(0, 'ticker', ticker)
@@ -243,7 +315,12 @@ def _finalize(frame: pd.DataFrame, columns: list) -> pd.DataFrame:
 
 def _parse_income(duration: pd.DataFrame) -> pd.DataFrame:
     """Quarterly (as-reported 3-month) + annual income rows, deriving Q4
-    as annual minus Q1-Q3 when the company never reports it standalone."""
+    as annual minus Q1-Q3 when the company never reports it standalone.
+
+    Weighted-average share counts use the average relationship instead
+    (4*FY - Q1-Q3); a non-positive result means the inputs disagree, so the
+    quarter is left missing rather than stored as nonsense.
+    """
     rows = _resolve(duration, INCOME_ITEMS, ['period_start', 'period_end'])
     if rows.empty:
         return pd.DataFrame()
@@ -252,31 +329,25 @@ def _parse_income(duration: pd.DataFrame) -> pd.DataFrame:
     annual['fiscal_quarter'] = 0
     quarterly = rows[rows['duration_days'].between(*QUARTER_DAYS)].copy()
 
-    # a 3-month window ending on a fiscal-year end is Q4 even when the fact
-    # carries the 10-K's 'FY' label (some issuers report Q4 in the 10-K)
-    annual_ends = set(zip(annual['item'], annual['period_end']))
-    ends_on_fy = [(item, end) in annual_ends
-                  for item, end in zip(quarterly['item'], quarterly['period_end'])]
-    quarterly.loc[~quarterly['fiscal_quarter'].isin([1, 2, 3, 4]) & pd.Series(ends_on_fy, index=quarterly.index),
-                  'fiscal_quarter'] = 4
-    quarterly = quarterly[quarterly['fiscal_quarter'].isin([1, 2, 3, 4])]
-
     derived = []
     for (item, fy), ann in annual.groupby(['item', 'fiscal_year']):
-        if item in NON_ADDITIVE_ITEMS:
-            continue
         ann = ann.iloc[0]
         qs = quarterly[(quarterly['item'] == item) & (quarterly['fiscal_year'] == fy)]
         present = set(qs['fiscal_quarter'])
-        if {1, 2, 3} <= present and 4 not in present:
-            q123 = qs[qs['fiscal_quarter'].isin([1, 2, 3])]
-            derived.append({
-                'item': item, 'fiscal_year': fy, 'fiscal_quarter': 4,
-                'numeric_value': ann['numeric_value'] - q123['numeric_value'].sum(),
-                'period_start': q123['period_end'].max() + pd.Timedelta(days=1),
-                'period_end': ann['period_end'],
-                'filing_date': ann['filing_date'], 'derived': True,
-            })
+        if not ({1, 2, 3} <= present) or 4 in present:
+            continue
+        q123 = qs[qs['fiscal_quarter'].isin([1, 2, 3])]['numeric_value'].sum()
+        value = (4 * ann['numeric_value'] - q123 if item in AVERAGE_ITEMS
+                 else ann['numeric_value'] - q123)
+        if item in AVERAGE_ITEMS and not value > 0:
+            continue
+        derived.append({
+            'item': item, 'fiscal_year': fy, 'fiscal_quarter': 4,
+            'numeric_value': value,
+            'period_start': qs['period_end'].max() + pd.Timedelta(days=1),
+            'period_end': ann['period_end'],
+            'filing_date': ann['filing_date'], 'derived': True,
+        })
 
     out = pd.concat([quarterly.assign(derived=False), annual.assign(derived=False),
                      pd.DataFrame(derived)], ignore_index=True)
@@ -296,18 +367,24 @@ def _parse_balance(instant: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     rows = rows[rows['fiscal_year'].notna()].copy()
     rows['fiscal_year'] = rows['fiscal_year'].astype(int)
+    rows['fiscal_quarter'] = rows['fiscal_quarter'].astype(int)
     rows['date'] = rows['period_end']
     rows = rows.drop_duplicates(subset=['item', 'date'], keep='first')
-    rows['fiscal_quarter'] = rows['fiscal_quarter'].replace({0: 4})
     return _finalize(rows, ['date', 'item', 'value', 'fiscal_year',
                             'fiscal_quarter', 'filed_date'])
 
 
-def _parse_cashflow(duration: pd.DataFrame, decumulate: bool = False) -> pd.DataFrame:
-    """Cumulative-from-fiscal-year-start cash-flow windows, duration kept.
+def _parse_cashflow(duration: pd.DataFrame) -> pd.DataFrame:
+    """Cash-flow windows: the as-reported cumulative rows PLUS the
+    single-quarter rows differenced out of them.
 
-    With ``decumulate`` True, consecutive windows sharing a fiscal-year start
-    are differenced into standalone quarters and appended as derived rows.
+    Issuers report cash flow cumulatively from the fiscal-year start (Q1,
+    H1, 9M, FY), which cannot be summed into a trailing-twelve-month figure.
+    Consecutive windows sharing a start are therefore always differenced into
+    standalone quarters and stored as ``derived=True`` rows next to the
+    originals -- ``derived`` is part of the table's primary key, so both
+    coexist. The Q1 window is already a single quarter and needs no
+    derived twin.
     """
     rows = _resolve(duration, CASHFLOW_ITEMS, ['period_start', 'period_end'])
     if rows.empty:
@@ -316,30 +393,232 @@ def _parse_cashflow(duration: pd.DataFrame, decumulate: bool = False) -> pd.Data
     rows['derived'] = False
 
     derived = []
-    if decumulate:
-        for (item, start), group in rows.groupby(['item', 'period_start']):
-            group = group.sort_values('period_end')
-            if len(group) < 2:
-                continue
-            previous = None
-            for _, row in group.iterrows():
-                if previous is not None:
-                    quarter = row['fiscal_quarter'] if row['fiscal_quarter'] in (1, 2, 3) else 4
-                    derived.append({
-                        'item': item, 'numeric_value': row['numeric_value'] - previous['numeric_value'],
-                        'period_start': previous['period_end'] + pd.Timedelta(days=1),
-                        'period_end': row['period_end'],
-                        'fiscal_year': row['fiscal_year'], 'fiscal_quarter': quarter,
-                        'filing_date': row['filing_date'], 'derived': True,
-                    })
-                previous = row
+    for _, group in rows.groupby(['item', 'period_start']):
+        group = group.sort_values('period_end')
+        previous = None
+        for _, row in group.iterrows():
+            if previous is not None:
+                derived.append({
+                    'item': row['item'],
+                    'numeric_value': row['numeric_value'] - previous['numeric_value'],
+                    'period_start': previous['period_end'] + pd.Timedelta(days=1),
+                    'period_end': row['period_end'],
+                    'fiscal_year': row['fiscal_year'],
+                    'fiscal_quarter': row['fiscal_quarter'],
+                    'filing_date': row['filing_date'], 'derived': True,
+                })
+            previous = row
 
     out = pd.concat([rows, pd.DataFrame(derived)], ignore_index=True)
     out['fiscal_year'] = out['fiscal_year'].astype(int)
+    out['fiscal_quarter'] = out['fiscal_quarter'].astype(int)
     out['duration_days'] = (out['period_end'] - out['period_start']).dt.days
-    out = out.drop_duplicates(subset=['item', 'period_start', 'period_end'], keep='first')
+    out = out.drop_duplicates(subset=['item', 'period_start', 'period_end', 'derived'],
+                              keep='first')
     return _finalize(out, ['start_date', 'end_date', 'item', 'value', 'duration_days',
                            'fiscal_year', 'fiscal_quarter', 'filed_date', 'derived'])
+
+
+# ---------------------------------------------------------------------- #
+# market-wide filing index
+# ---------------------------------------------------------------------- #
+
+# forms that carry XBRL financial statements for a domestic filer. Foreign
+# private issuers report on 20-F/40-F (annual) and 6-K (interim) instead --
+# see filer_types(); their facts arrive in the ifrs-full taxonomy, which the
+# us-gaap concept lists above do not resolve.
+STATEMENT_FORMS = ('10-K', '10-Q', '10-K/A', '10-Q/A')
+FOREIGN_ANNUAL_FORMS = ('20-F', '40-F')
+FILER_TYPE_CACHE = 'filer_types.csv'
+
+
+def _ensure_identity():
+    """SEC requires a User-Agent; the pipeline sets it in __init__, but the
+    index helpers below are usable without ever constructing one."""
+    set_identity(EDGAR_IDENTITY)
+
+
+def ticker_ciks(tickers=None) -> pd.Series:
+    """ticker -> CIK, from the bundled offline mapping.
+
+    Mapped this direction on purpose: a CIK can list several tickers (share
+    classes, an ADR alongside its OTC line -- 1,449 of them do), so a
+    CIK->ticker dict silently keeps one and drops the rest. BTI, for
+    instance, shares CIK 1303523 with BTAFF.
+    """
+    from edgar import get_company_tickers
+    _ensure_identity()
+    frame = get_company_tickers().dropna(subset=['ticker', 'cik'])
+    lookup = frame.drop_duplicates('ticker').set_index('ticker')['cik']
+    if tickers is None:
+        return lookup
+    return lookup.reindex(sorted({t.upper() for t in tickers})).dropna().astype(int)
+
+
+def latest_statement_filings(tickers=None, since=None,
+                             forms: tuple = STATEMENT_FORMS,
+                             ticker_cik: pd.Series = None) -> pd.Series:
+    """Newest statement filing date per ticker, from the market-wide index.
+
+    SEC publishes one index covering every filing by every company, so
+    answering "who has reported since X?" for a whole universe is a single
+    request -- as opposed to per-company endpoints, which need one request
+    each and get rate-limited long before 800 of them finish.
+
+    Returns a ticker-indexed Series of dates; tickers with no such filing in
+    the window are absent. ``since`` defaults to 30 days back. Pass
+    ``ticker_cik`` to join on CIKs already stored in ticker_meta -- those are
+    the entities the facts were actually fetched under, so they stay correct
+    through a ticker rename.
+    """
+    from edgar import get_filings
+    _ensure_identity()
+    since = _to_date(since) or (date.today() - timedelta(days=30))
+    if ticker_cik is None or ticker_cik.empty:
+        ticker_cik = ticker_ciks(tickers)
+    if ticker_cik.empty:
+        return pd.Series(dtype='object')
+
+    filings = get_filings(filing_date=f'{since}:', form=list(forms))
+    if filings is None:
+        logger.warning('EDGAR filing index returned nothing for %s onward', since)
+        return pd.Series(dtype='object')
+    frame = filings.to_pandas()
+    if frame.empty:
+        return pd.Series(dtype='object')
+
+    newest = frame.groupby('cik')['filing_date'].max()
+    latest = ticker_cik.map(newest).dropna()
+    if latest.empty:
+        return pd.Series(dtype='object')
+    latest = pd.to_datetime(latest).dt.date
+    logger.info('EDGAR index since %s: %d filing(s), resolving %d of %d requested ticker(s)',
+                since, len(frame), len(latest), len(ticker_cik))
+    return latest
+
+
+def filer_types(tickers=None, since=None, refresh: bool = False,
+                max_age_days: int = 90) -> pd.Series:
+    """Ticker -> 'domestic' (files 10-K) or 'foreign' (files 20-F/40-F).
+
+    The distinction matters because foreign private issuers tag their facts
+    in the ifrs-full taxonomy and report semi-annually, neither of which the
+    us-gaap concept lists and quarter-length filters here handle -- so their
+    statements come out largely empty. Classification is derived from which
+    annual form each company actually files, cached under the data dir, and
+    refreshed when older than ``max_age_days``.
+
+    Tickers that filed no annual report in the window are simply absent,
+    rather than guessed at.
+    """
+    from findata.configs import DATA_DIR
+    from edgar import get_filings
+
+    cache = Path(DATA_DIR) / FILER_TYPE_CACHE
+    if cache.exists() and not refresh:
+        stored = pd.read_csv(cache)
+        checked = _to_date(stored['checked'].iloc[0]) if 'checked' in stored else None
+        if checked and (date.today() - checked).days <= max_age_days:
+            series = stored.set_index('ticker')['filer_type']
+            return series if tickers is None else series.reindex(
+                [t.upper() for t in tickers]).dropna()
+
+    _ensure_identity()
+    since = _to_date(since) or (date.today() - timedelta(days=730))
+    ticker_cik = ticker_ciks(None)   # classify every known ticker, then cache
+    frame = get_filings(filing_date=f'{since}:',
+                        form=['10-K', *FOREIGN_ANNUAL_FORMS]).to_pandas()
+    # a company filing both (a transition year) is treated as domestic: its
+    # newer statements arrive in us-gaap, which is what the parser reads
+    by_cik = frame.groupby('cik')['form'].apply(
+        lambda forms: 'domestic' if '10-K' in set(forms) else 'foreign')
+    kinds = ticker_cik.map(by_cik).dropna()
+    kinds.index.name = 'ticker'
+    kinds.name = 'filer_type'
+
+    out = kinds.reset_index()
+    out['checked'] = date.today().isoformat()
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(cache, index=False)
+    logger.info('Classified %d ticker(s) by annual form -> %s (cached to %s)',
+                len(kinds), kinds.value_counts().to_dict(), cache.name)
+    return kinds if tickers is None else kinds.reindex(
+        [t.upper() for t in tickers]).dropna()
+
+
+# ---------------------------------------------------------------------- #
+# completeness validation
+# ---------------------------------------------------------------------- #
+
+def validate_statements(statements: dict, ticker: str = '', grace_years: int = 2,
+                        items: tuple = None) -> pd.DataFrame:
+    """Fiscal years whose quarterly coverage is incomplete.
+
+    One row per (statement, item, fiscal_year) holding fewer than four
+    quarters. The first ``grace_years`` fiscal years of a ticker's history
+    are skipped: early filings routinely lack a quarter or two before the
+    issuer's XBRL tagging settles, which is expected rather than a defect.
+    The newest fiscal year is skipped too -- it is simply still in progress.
+
+    ``items`` restricts the check to specific item names (default: every
+    item present). Returns an empty frame when everything checks out.
+    """
+    frames = []
+    for name, frame in statements.items():
+        if frame is None or frame.empty:
+            continue
+        counted = _quarter_counts(name, frame)
+        if counted.empty:
+            continue
+        counted.insert(0, 'statement', name)
+        frames.append(counted)
+    if not frames:
+        return pd.DataFrame(columns=['ticker', 'statement', 'item', 'fiscal_year',
+                                     'n_quarters', 'missing_quarters'])
+
+    out = pd.concat(frames, ignore_index=True)
+    if items is not None:
+        out = out[out['item'].isin(items)]
+    if out.empty:
+        return out.assign(ticker=ticker)
+
+    out = out[out['fiscal_year'] < out['fiscal_year'].max()]  # year still in progress
+
+    kept = []
+    for _, group in out.groupby(['statement', 'item'], sort=False):
+        # an item the issuer only ever tags annually is a reporting choice,
+        # not a gap -- nothing to flag unless it reaches 4 quarters somewhere
+        if group['n_quarters'].max() < 4:
+            continue
+        # grace runs from each item's OWN first year, so an item that starts
+        # being reported late isn't flagged for its ramp-up
+        kept.append(group[group['fiscal_year'] >= group['fiscal_year'].min() + grace_years])
+    if not kept:
+        return out.iloc[0:0].assign(ticker=ticker)
+
+    out = pd.concat(kept)
+    out = out[out['n_quarters'] < 4]
+    out.insert(0, 'ticker', ticker)
+    return out.sort_values(['statement', 'item', 'fiscal_year'], ignore_index=True)
+
+
+def _quarter_counts(statement: str, frame: pd.DataFrame) -> pd.DataFrame:
+    """Quarters present per (item, fiscal_year) for one statement."""
+    df = frame
+    if statement == 'income':
+        df = df[df['fiscal_quarter'].between(1, 4)]
+    elif statement == 'cashflow':
+        # only the single-quarter rows count: the cumulative originals would
+        # double-count, and derived rows cover Q2-Q4 with Q1 already single
+        df = df[df['duration_days'] <= QUARTER_DAYS[1]]
+    if df.empty:
+        return pd.DataFrame()
+    grouped = df.groupby(['item', 'fiscal_year'])['fiscal_quarter']
+    counted = grouped.nunique().rename('n_quarters').reset_index()
+    present = grouped.agg(lambda s: sorted(set(s)))
+    counted['missing_quarters'] = [
+        [q for q in (1, 2, 3, 4) if q not in got] for got in present.values]
+    return counted
 
 
 # ---------------------------------------------------------------------- #
@@ -395,12 +674,14 @@ class EdgarPipeline:
     def __init__(self, db: DBManager = None, sec_dir=None, identity: str = EDGAR_IDENTITY,
                  parse_extra_data: bool = False, forms=('10-K', '10-Q', '8-K', '4'),
                  max_concurrency: int = 4, requests_per_second: float = 8.0,
-                 batch_size: int = 2, decumulate_cashflow: bool = False,
-                 mode: str = 'full'):
-        """``mode='numeric'`` fetches only the numerical data -- XBRL facts
-        (always fetched regardless of forms) plus Form 4 transactions -- by
-        restricting ``forms`` to ('4',): no 10-K/10-Q/8-K downloads, no text
-        extraction, no disk writes. 'full' (default) behaves as before."""
+                 batch_size: int = 5, mode: str = 'full',
+                 validate: bool = True, grace_years: int = 2):
+        """``mode='numeric'`` fetches ONLY the XBRL company facts: one
+        submissions request plus one facts request per ticker. The filings
+        stages never start, so no filing list is enumerated, nothing is
+        downloaded or parsed, and neither filing text nor Form 4 rows are
+        written. 'full' (default) runs both streams; for Form 4 without any
+        text filings use mode='full' with forms=('4',)."""
         if mode not in ('full', 'numeric'):
             raise ValueError("mode must be 'full' or 'numeric'")
         set_identity(identity)
@@ -408,11 +689,13 @@ class EdgarPipeline:
         self.sec_dir = Path(sec_dir) if sec_dir is not None else Path(SEC_DIR)
         self.parse_extra_data = parse_extra_data
         self.mode = mode
-        self.forms = ('4',) if mode == 'numeric' else tuple(forms)
+        self.fetch_filings = mode == 'full'
+        self.forms = tuple(forms) if self.fetch_filings else ()
         self.max_concurrency = max_concurrency
         self.requests_per_second = requests_per_second
         self.batch_size = batch_size
-        self.decumulate_cashflow = decumulate_cashflow
+        self.validate = validate
+        self.grace_years = grace_years
 
     # ------------------------------ entry ------------------------------ #
 
@@ -442,7 +725,9 @@ class EdgarPipeline:
     def _build_job(self, ticker: str, force: bool, min_date) -> _TickerJob:
         text_since = form4_since = min_date
         known = set()
-        if not force:
+        # every field below only feeds _list_filings, so numeric mode skips
+        # the three DB lookups entirely
+        if not force and self.fetch_filings:
             meta = self.db.get_ticker_meta([ticker])
             if not meta.empty and bool(meta['edgar_seeded'].fillna(False).iloc[0]):
                 text_since = meta['last_filings_date'].iloc[0] or min_date
@@ -471,7 +756,9 @@ class EdgarPipeline:
         company_q, filings_q, obj_q, facts_q = (asyncio.Queue() for _ in range(4))
         for job in jobs:
             company_q.put_nowait(job)
-        bar = tqdm(total=0, unit='filing', disable=not progress,
+        bar = tqdm(total=0 if self.fetch_filings else len(jobs),
+                   unit='filing' if self.fetch_filings else 'ticker',
+                   disable=not progress,
                    desc=f"EDGAR {'/'.join(job.ticker for job in jobs)}",
                    dynamic_ncols=True, leave=True)
 
@@ -482,7 +769,8 @@ class EdgarPipeline:
                     company = await self._request(Company, job.ticker)
                     results[job.ticker].company_name = company.name
                     results[job.ticker].cik = company.cik
-                    filings_q.put_nowait((job, company))
+                    if self.fetch_filings:
+                        filings_q.put_nowait((job, company))
                     facts_q.put_nowait((job, company))
                 except Exception as e:
                     results[job.ticker].errors.append(f'company: {e}')
@@ -529,16 +817,22 @@ class EdgarPipeline:
                     results[job.ticker].errors.append(f'get_facts: {e}')
                     logger.error('%s: get_facts failed: %s', job.ticker, e)
                 finally:
+                    if not self.fetch_filings:
+                        bar.update(1)
                     facts_q.task_done()
 
+        # numeric mode never starts the filings/obj workers, so nothing is
+        # listed, downloaded or parsed -- the facts request is the only extra
         workers = ([asyncio.create_task(company_worker()) for _ in range(2)]
-                   + [asyncio.create_task(filings_worker()) for _ in range(2)]
-                   + [asyncio.create_task(obj_worker()) for _ in range(self.max_concurrency)]
                    + [asyncio.create_task(facts_worker()) for _ in range(2)])
+        if self.fetch_filings:
+            workers += ([asyncio.create_task(filings_worker()) for _ in range(2)]
+                        + [asyncio.create_task(obj_worker()) for _ in range(self.max_concurrency)])
         await company_q.join()
-        await filings_q.join()
-        bar.refresh()
-        await obj_q.join()
+        if self.fetch_filings:
+            await filings_q.join()
+            bar.refresh()
+            await obj_q.join()
         await facts_q.join()
         bar.close()
         for worker in workers:
@@ -641,36 +935,48 @@ class EdgarPipeline:
             logger.error('%s: nothing fetched, skipping processing', ticker)
             return counts
 
-        # fiscal-year anchors (10-K period ends) from this batch + the DB
-        stored_tenk = self.db.get_filings_meta(ticker, '10-K')
-        anchors = {_to_date(d) for d in stored_tenk['period_of_report']} if not stored_tenk.empty else set()
-        anchors |= {p['period_of_report'] for p in result.filings
-                    if p['form'] == '10-K' and p['period_of_report']}
-        anchors = sorted(a for a in anchors if a)
+        if result.filings:  # numeric mode fetches none, so this whole side is skipped
+            # fiscal-year anchors (10-K period ends) from this batch + the DB
+            stored_tenk = self.db.get_filings_meta(ticker, '10-K')
+            anchors = ({_to_date(d) for d in stored_tenk['period_of_report']}
+                       if not stored_tenk.empty else set())
+            anchors |= {p['period_of_report'] for p in result.filings
+                        if p['form'] == '10-K' and p['period_of_report']}
+            anchors = sorted(a for a in anchors if a)
 
-        meta_rows, form4_payloads = [], []
-        for payload in sorted(result.filings, key=lambda p: p['filing_date']):
-            if payload['form'] in ('10-K', '10-Q'):
-                meta_rows.append(self._process_text_filing(ticker, payload, anchors))
-                counts['text_filings'] += 1
-                counts['sections'] += len(payload['sections'])
-            elif payload['form'] == '8-K':
-                meta_rows.append(self._process_eightk(ticker, payload))
-                counts['text_filings'] += 1
-                counts['sections'] += len(payload['items'])
-            elif payload['form'] == '4':
-                form4_payloads.append(payload)
+            meta_rows, form4_payloads = [], []
+            for payload in sorted(result.filings, key=lambda p: p['filing_date']):
+                if payload['form'] in ('10-K', '10-Q'):
+                    meta_rows.append(self._process_text_filing(ticker, payload, anchors))
+                    counts['text_filings'] += 1
+                    counts['sections'] += len(payload['sections'])
+                elif payload['form'] == '8-K':
+                    meta_rows.append(self._process_eightk(ticker, payload))
+                    counts['text_filings'] += 1
+                    counts['sections'] += len(payload['items'])
+                elif payload['form'] == '4':
+                    form4_payloads.append(payload)
 
-        if meta_rows:
-            self.db.add_filings_meta(pd.DataFrame(meta_rows))
-        if form4_payloads:
-            form4_df = self._standardize_form4(form4_payloads, ticker)
-            counts['form4_rows'] = self.db.add_form4(form4_df) if not form4_df.empty else 0
+            if meta_rows:
+                self.db.add_filings_meta(pd.DataFrame(meta_rows))
+            if form4_payloads:
+                form4_df = self._standardize_form4(form4_payloads, ticker)
+                counts['form4_rows'] = self.db.add_form4(form4_df) if not form4_df.empty else 0
 
         if result.facts is not None and not result.facts.empty:
-            statements = parse_financials(result.facts, ticker, self.decumulate_cashflow)
-            inserted = self.db.add_financials(statements)
+            statements = parse_financials(result.facts, ticker)
+            # replace, not append: the facts request returns the full history,
+            # so the parse is authoritative and supersedes anything stored
+            inserted = self.db.replace_financials(ticker, statements)
             counts.update(inserted)
+            if self.validate:
+                gaps = validate_statements(statements, ticker, self.grace_years)
+                counts['incomplete_years'] = len(gaps)
+                if not gaps.empty:
+                    summary = (gaps.groupby(['statement', 'item'])['fiscal_year']
+                               .agg(lambda s: sorted(s)).to_dict())
+                    logger.warning('%s: incomplete quarterly coverage for %d (item, year) '
+                                   'pair(s): %s', ticker, len(gaps), summary)
 
         self._update_meta(result)
         logger.info('%s processed: %s', ticker, counts)
@@ -768,6 +1074,12 @@ class EdgarPipeline:
                if value is not None}
         if result.company_name:
             row['name'] = result.company_name
+        if result.cik is not None:
+            row['cik'] = int(result.cik)
+        if result.facts is not None and not result.facts.empty:
+            # when the facts were last pulled, so daily runs can skip tickers
+            # whose financials cannot have changed (issuers file quarterly)
+            row['last_facts_date'] = date.today()
         info = pd.DataFrame(row or {'name': None}, index=pd.Index([result.ticker], name='ticker'))
         self.db.upsert_ticker_meta(info, edgar_seeded=True)
 
